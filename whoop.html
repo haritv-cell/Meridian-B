@@ -694,7 +694,7 @@ main {
   // ===== Config — Client ID stored in localStorage, never hardcoded =====
   const CLIENT_ID_KEY = 'whoop_cfg_clientId';
   const TOKEN_KEY     = 'whoop_tokens_v1';
-  const SCOPES = 'read:recovery read:cycles read:sleep read:workout read:profile';
+  const SCOPES = 'read:recovery read:cycles read:sleep read:workout';
 
   function getClientId() {
     const v = localStorage.getItem(CLIENT_ID_KEY) || '';
