@@ -696,7 +696,10 @@ main {
   const TOKEN_KEY     = 'whoop_tokens_v1';
   const SCOPES = 'read:recovery read:cycles read:sleep read:workout read:profile';
 
-  function getClientId() { return localStorage.getItem(CLIENT_ID_KEY) || ''; }
+  function getClientId() {
+    const v = localStorage.getItem(CLIENT_ID_KEY) || '';
+    try { const p = JSON.parse(v); return typeof p === 'string' ? p : v; } catch { return v; }
+  }
   function saveClientId(v) { localStorage.setItem(CLIENT_ID_KEY, v); }
 
   // Redirect URI is derived from this page's origin — matches what goes in
