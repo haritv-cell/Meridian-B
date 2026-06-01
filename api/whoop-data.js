@@ -23,7 +23,10 @@ export default async function handler(req, res) {
   }
   const qs = fwd.toString();
 
-  const base = 'https://api.prod.whoop.com/developer/v1';
+  // /cycle still lives on v1; everything else is v2
+  const base = path.startsWith('/cycle')
+    ? 'https://api.prod.whoop.com/developer/v1'
+    : 'https://api.prod.whoop.com/developer/v2';
 
   const url = base + path + (qs ? '?' + qs : '');
 
