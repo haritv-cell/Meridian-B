@@ -6,6 +6,8 @@
 <meta name="theme-color" content="#050506">
 <meta name="color-scheme" content="dark">
 <title>WHOOP — Meridian</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="sync.js" defer></script>
 <script src="topbar.js" defer></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -694,7 +696,7 @@ main {
   // ===== Config — Client ID stored in localStorage, never hardcoded =====
   const CLIENT_ID_KEY = 'whoop_cfg_clientId';
   const TOKEN_KEY     = 'whoop_tokens_v1';
-  const SCOPES = 'read:recovery read:cycles read:sleep read:workout read:profile';
+  const SCOPES = 'read:recovery read:cycles read:sleep read:workout';
 
   function getClientId() { return localStorage.getItem(CLIENT_ID_KEY) || ''; }
   function saveClientId(v) { localStorage.setItem(CLIENT_ID_KEY, v); }
@@ -1032,6 +1034,16 @@ main {
   }
 
   render();
+
+  // Sync Client ID and tokens across devices via Supabase
+  document.addEventListener('DOMContentLoaded', function () {
+    if (typeof initCloudSync !== 'function') return;
+    initCloudSync({
+      appKey: 'whoop',
+      syncedKeys: [CLIENT_ID_KEY, TOKEN_KEY],
+      onApplied: function () { render(); }
+    });
+  });
 })();
 </script>
 </body>
