@@ -197,7 +197,7 @@ body.topbar-modal-open {
   </a>
   <a href="whoop.html" class="topbar-pill" id="topbarWhoop">
     <span class="topbar-pill-dot"></span>
-    <span class="topbar-pill-label">WHOOP</span>
+    <span class="topbar-pill-label">HEALTH</span>
   </a>
 </header>
 `;

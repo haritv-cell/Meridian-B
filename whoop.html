@@ -5,7 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#050506">
 <meta name="color-scheme" content="dark">
-<title>WHOOP — Meridian</title>
+<title>Health — Meridian</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="sync.js" defer></script>
 <script src="topbar.js" defer></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -501,6 +503,351 @@ main {
 .whoop-disconnect-btn:hover { color: var(--text-secondary); border-color: var(--border-soft); }
 
 @media (max-width: 480px) { main { padding-left: 14px; padding-right: 14px; } }
+
+/* ===== Bottom tab bar (copied from gym.html) ===== */
+.health-tabbar {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  z-index: 50;
+  display: flex;
+  justify-content: center;
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, rgba(10,10,11,0) 0%, rgba(10,10,11,0.78) 38%, rgba(10,10,11,0.94) 100%);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  pointer-events: none;
+}
+.health-tabbar-inner {
+  pointer-events: auto;
+  display: flex;
+  width: 100%;
+  max-width: 400px;
+  gap: 6px;
+  padding: 6px;
+  background: rgba(20, 20, 22, 0.72);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 18px;
+  box-shadow: 0 12px 36px rgba(0,0,0,0.55);
+}
+.health-tab-btn {
+  flex: 1 1 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 11px 12px;
+  border-radius: 13px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: rgba(255,255,255,0.45);
+  background: transparent;
+  border: 1px solid transparent;
+  font-family: inherit;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.health-tab-btn:hover { color: rgba(255,255,255,0.7); }
+.health-tab-btn.active {
+  color: #FAFAFA;
+  background: rgba(255,255,255,0.06);
+  border-color: rgba(255,255,255,0.10);
+}
+.health-tab[hidden] { display: none !important; }
+
+/* ===== Fitness tab — two rings side by side ===== */
+.fitness-rings-row {
+  display: flex;
+  justify-content: center;
+  gap: 28px;
+  margin-bottom: 22px;
+  flex-wrap: wrap;
+}
+.fitness-ring-wrap {
+  position: relative;
+  width: 160px;
+  aspect-ratio: 1;
+  flex-shrink: 0;
+}
+.fitness-ring {
+  width: 100%; height: 100%;
+  transform: rotate(-90deg);
+  filter: drop-shadow(0 0 16px rgba(255,255,255,0.04));
+}
+.fitness-ring-track { fill: none; stroke: rgba(255,255,255,0.06); stroke-width: 10; }
+.fitness-ring-fill {
+  fill: none; stroke-width: 10;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.8s cubic-bezier(0.22,1,0.36,1), stroke 0.4s, filter 0.4s;
+}
+.fitness-ring-center {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  pointer-events: none;
+}
+.fitness-ring-num {
+  font-size: 36px; font-weight: 700; letter-spacing: -0.04em;
+  color: var(--text-primary); line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.fitness-ring-unit {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.20em;
+  text-transform: uppercase; color: var(--text-tertiary); margin-top: 8px;
+}
+.fitness-ring-label {
+  font-size: 11px; font-weight: 600; margin-top: 4px;
+}
+
+/* Concentric calories rings */
+.cal-ring-wrap {
+  position: relative; width: 160px; aspect-ratio: 1; flex-shrink: 0;
+}
+.cal-ring { width: 100%; height: 100%; transform: rotate(-90deg); }
+.cal-ring-track-outer { fill: none; stroke: rgba(255,255,255,0.06); stroke-width: 10; }
+.cal-ring-track-inner { fill: none; stroke: rgba(255,255,255,0.04); stroke-width: 10; }
+.cal-ring-fill-outer {
+  fill: none; stroke: #E07658; stroke-width: 10; stroke-linecap: round;
+  transition: stroke-dashoffset 0.8s cubic-bezier(0.22,1,0.36,1);
+}
+.cal-ring-fill-inner {
+  fill: none; stroke: #6BE3A4; stroke-width: 10; stroke-linecap: round;
+  transition: stroke-dashoffset 0.8s cubic-bezier(0.22,1,0.36,1);
+}
+.cal-ring-center {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  pointer-events: none; gap: 2px;
+}
+.cal-ring-burned { font-size: 22px; font-weight: 700; letter-spacing: -0.03em; color: #E07658; line-height: 1; font-variant-numeric: tabular-nums; }
+.cal-ring-sep { font-size: 9px; color: var(--text-quaternary); letter-spacing: 0.10em; font-weight: 600; }
+.cal-ring-consumed { font-size: 16px; font-weight: 700; color: #6BE3A4; line-height: 1; font-variant-numeric: tabular-nums; }
+.cal-ring-unit { font-size: 9px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-tertiary); margin-top: 6px; }
+.cal-input-row {
+  display: flex; gap: 8px; align-items: center;
+  margin-top: 14px; justify-content: center;
+}
+.cal-consumed-input {
+  width: 110px; padding: 9px 12px;
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px; color: var(--text-primary);
+  font: inherit; font-size: 14px; font-weight: 600; text-align: center;
+  font-variant-numeric: tabular-nums; outline: none;
+}
+.cal-consumed-input:focus { border-color: #6BE3A4; }
+.cal-save-btn {
+  padding: 9px 14px; border-radius: 10px;
+  background: rgba(107,227,164,0.14); border: 1px solid rgba(107,227,164,0.30);
+  color: #6BE3A4; font: inherit; font-size: 12px; font-weight: 700;
+  cursor: pointer; letter-spacing: 0.04em;
+  transition: background 0.18s;
+}
+.cal-save-btn:hover { background: rgba(107,227,164,0.22); }
+
+/* Activity cards grid */
+.whoop-activities-head {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.18em;
+  text-transform: uppercase; color: var(--text-tertiary);
+  margin: 18px 0 10px; padding-top: 18px;
+  border-top: 1px solid var(--border-soft);
+}
+.whoop-activity-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+}
+.whoop-activity-card {
+  background: rgba(255,255,255,0.025);
+  border: 1px solid var(--border-soft); border-radius: 12px;
+  padding: 12px 10px;
+}
+.whoop-activity-name {
+  font-size: 12px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px;
+  display: flex; align-items: center; gap: 6px;
+}
+.whoop-activity-dot {
+  width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+}
+.whoop-activity-meta {
+  font-size: 11px; color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums; font-family: var(--font-mono);
+}
+@media (max-width: 380px) { .whoop-activity-grid { grid-template-columns: 1fr; } }
+
+/* ===== Weight tracker (wt-* copied from gym.html) ===== */
+.wt-section { margin-bottom: 22px; }
+.wt-divider { display: flex; align-items: center; gap: 16px; margin-bottom: 14px; }
+.wt-divider::before, .wt-divider::after { content: ''; flex: 1; height: 1px; background: rgba(255,255,255,0.10); }
+.wt-divider span { font-size: 11px; letter-spacing: 0.22em; font-weight: 600; color: rgba(255,255,255,0.85); }
+.wt-card {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(110,231,183,0.10);
+  border-radius: 18px; padding: 22px 20px 18px;
+}
+.wt-row { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+.wt-num { font-size: 48px; font-weight: 600; letter-spacing: -0.025em; line-height: 1; font-variant-numeric: tabular-nums; }
+.wt-unit { font-size: 16px; color: var(--text-tertiary); }
+.wt-delta { font-size: 13px; font-weight: 500; margin-bottom: 14px; font-variant-numeric: tabular-nums; }
+.wt-delta.up { color: #F2C063; }
+.wt-delta.down { color: #6BE3A4; }
+.wt-streak { color: #6BE3A4; font-size: 13px; font-weight: 500; margin-bottom: 14px; display: inline-flex; align-items: center; gap: 6px; }
+.wt-empty { text-align: center; padding: 28px 16px; color: var(--text-tertiary); font-size: 13px; border: 1px dashed rgba(255,255,255,0.06); border-radius: 12px; margin-bottom: 4px; }
+.wt-chart-wrap { position: relative; margin: 16px 0 8px; }
+.wt-chart-yaxis { position: absolute; left: 0; top: 0; bottom: 0; width: 36px; display: flex; flex-direction: column; justify-content: space-between; padding: 4px 0; }
+.wt-chart-yaxis span { font-size: 10px; color: var(--text-quaternary); font-family: var(--font-mono); }
+.wt-chart { height: 130px; display: block; margin-left: 36px; width: calc(100% - 36px); }
+.wt-grid { stroke: rgba(255,255,255,0.05); stroke-width: 1; }
+.wt-area { fill: url(#wtFill); }
+.wt-line { fill: none; stroke: #6EE7B7; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.wt-avg-line { fill: none; stroke: rgba(110,231,183,0.45); stroke-width: 1.5; stroke-dasharray: 4 3; opacity: 0.6; }
+.wt-dot { fill: #6EE7B7; stroke: rgba(255,255,255,0.04); stroke-width: 1.5; }
+.wt-dot-today { fill: #fff; stroke: #6EE7B7; stroke-width: 2; }
+.wt-meta { text-align: center; font-size: 11px; color: var(--text-tertiary); margin-top: 8px; }
+.wt-legend { display: flex; justify-content: center; gap: 18px; margin-top: 10px; }
+.wt-legend-item { display: inline-flex; align-items: center; gap: 6px; font-size: 10px; letter-spacing: 0.18em; font-weight: 600; color: var(--text-tertiary); }
+.wt-legend-dot { width: 14px; height: 2px; background: #6EE7B7; border-radius: 1px; }
+.wt-legend-dot-avg { background: transparent; border-top: 2px dashed rgba(110,231,183,0.45); height: 2px; }
+.wt-locked { display: flex; align-items: center; justify-content: space-between; background: rgba(110,231,183,0.04); border: 1px solid rgba(110,231,183,0.16); border-radius: 12px; padding: 12px 14px; margin-top: 14px; }
+.wt-locked-info { display: flex; align-items: center; gap: 12px; }
+.wt-locked-check { width: 30px; height: 30px; background: rgba(110,231,183,0.12); color: #6EE7B7; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; }
+.wt-locked-label { font-size: 10px; letter-spacing: 0.16em; font-weight: 600; color: var(--text-tertiary); margin-bottom: 2px; }
+.wt-locked-value { font-size: 16px; font-weight: 600; }
+.wt-edit-btn { background: transparent; border: none; color: #6EE7B7; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; padding: 6px 10px; -webkit-tap-highlight-color: transparent; }
+.wt-input-row { margin-top: 14px; }
+.wt-input-top { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 10px; }
+.wt-input { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; color: var(--text-primary); font-family: inherit; font-size: 16px; font-weight: 500; padding: 11px 13px; width: 100%; outline: none; }
+.wt-input:focus { border-color: rgba(110,231,183,0.4); }
+.wt-unit-static { color: var(--text-tertiary); font-size: 13px; }
+.wt-save-btn { background: #6EE7B7; color: #000; border: none; border-radius: 10px; padding: 11px 18px; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.wt-progress-link { display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.04); border: 1px solid rgba(110,231,183,0.10); border-radius: 16px; padding: 18px 20px; color: var(--text-primary); margin-top: 12px; cursor: pointer; width: 100%; font-family: inherit; text-align: left; transition: border-color 0.2s, transform 0.15s; -webkit-tap-highlight-color: transparent; }
+.wt-progress-link:hover { border-color: rgba(110,231,183,0.25); }
+.wt-progress-label { font-size: 11px; letter-spacing: 0.20em; font-weight: 600; color: var(--text-tertiary); margin-bottom: 4px; }
+.wt-progress-count { font-size: 14px; font-weight: 500; }
+.wt-progress-arrow { color: #6EE7B7; font-size: 20px; }
+.wt-overlay { position: fixed; inset: 0; background: var(--bg); z-index: 100; overflow-y: auto; transform: translateY(100%); transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1); }
+.wt-overlay.is-open { transform: translateY(0); }
+.wt-overlay-inner { max-width: 720px; margin: 0 auto; padding: 24px 20px 40px; }
+.wt-overlay-h { display: flex; align-items: center; gap: 14px; margin-bottom: 22px; }
+.wt-back { width: 40px; height: 40px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); border-radius: 50%; color: var(--text-primary); cursor: pointer; display: flex; align-items: center; justify-content: center; font-family: inherit; -webkit-tap-highlight-color: transparent; }
+.wt-overlay-title { font-size: 26px; font-weight: 600; letter-spacing: -0.015em; }
+.wt-overlay-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 22px; }
+.wt-overlay-action { height: 50px; border-radius: 12px; border: none; font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.wt-overlay-primary { background: #6EE7B7; color: #000; }
+.wt-overlay-secondary { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); color: var(--text-primary); }
+.wt-photo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.wt-photo-empty { grid-column: 1 / -1; text-align: center; padding: 50px 20px; color: var(--text-tertiary); font-size: 13px; }
+.wt-photo-card { position: relative; aspect-ratio: 3 / 4; border-radius: 12px; overflow: hidden; background: linear-gradient(135deg, #1a1a24, #0a0f0a); cursor: pointer; border: 1px solid rgba(110,231,183,0.08); font-family: inherit; -webkit-tap-highlight-color: transparent; }
+.wt-photo-card.is-removing { opacity: 0; transform: scale(0.92); transition: 0.25s; }
+.wt-photo-card img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.wt-photo-overlay { position: absolute; inset: 0; background: linear-gradient(to bottom, transparent 50%, rgba(0,0,0,0.7) 100%); pointer-events: none; }
+.wt-photo-meta { position: absolute; left: 0; right: 0; bottom: 0; padding: 12px 14px; display: flex; justify-content: space-between; align-items: flex-end; font-size: 12px; font-weight: 500; }
+.wt-photo-date { color: #6EE7B7; }
+.wt-photo-weight { color: var(--text-primary); }
+.wt-cam { position: fixed; inset: 0; background: #000; z-index: 300; display: none; flex-direction: column; }
+.wt-cam.is-open { display: flex; }
+.wt-cam-stage { flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative; }
+.wt-cam-video { width: 100%; height: 100%; object-fit: cover; background: #000; }
+.wt-cam-actions { display: flex; align-items: center; justify-content: space-between; padding: 24px 28px calc(24px + env(safe-area-inset-bottom)); background: #000; }
+.wt-cam-btn { background: transparent; border: none; color: var(--text-primary); font-family: inherit; font-size: 14px; font-weight: 500; cursor: pointer; padding: 10px; min-width: 60px; display: flex; align-items: center; justify-content: center; -webkit-tap-highlight-color: transparent; }
+.wt-cam-shutter { width: 64px; height: 64px; border-radius: 50%; background: #fff; border: 4px solid rgba(255,255,255,0.3); box-shadow: 0 0 0 2px #fff inset; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.wt-cam-shutter:active { transform: scale(0.92); }
+.wt-viewer { position: fixed; inset: 0; background: rgba(0,0,0,0.96); z-index: 200; opacity: 0; pointer-events: none; transition: opacity 0.2s; display: flex; flex-direction: column; padding: 24px 16px; }
+.wt-viewer.is-open { opacity: 1; pointer-events: auto; }
+.wt-viewer-stage { flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.wt-viewer-meta { text-align: center; padding: 16px 0 8px; }
+.wt-viewer-date { color: #6EE7B7; font-size: 11px; letter-spacing: 0.18em; font-weight: 600; margin-bottom: 4px; }
+.wt-viewer-weight { color: var(--text-primary); font-size: 20px; font-weight: 600; }
+.wt-viewer-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.wt-viewer-btn { background: transparent; border: 1px solid rgba(255,255,255,0.06); font-family: inherit; font-size: 14px; font-weight: 500; padding: 12px; cursor: pointer; border-radius: 10px; -webkit-tap-highlight-color: transparent; }
+.wt-viewer-close { color: var(--text-primary); }
+.wt-viewer-delete { color: #FF8A8A; border-color: rgba(248,113,113,0.3); }
+.wt-viewer-delete.is-confirm { background: rgba(248,113,113,0.10); }
+.wt-viewer-compare { color: #6EE7B7; border-color: rgba(110,231,183,0.30); }
+.wt-viewer-back { color: #6EE7B7; border-color: rgba(110,231,183,0.30); }
+.wt-viewer .wt-viewer-single, .wt-viewer .wt-viewer-compare-view { display: none; flex-direction: column; flex: 1; min-height: 0; }
+.wt-viewer[data-mode="single"] .wt-viewer-single { display: flex; }
+.wt-viewer[data-mode="compare"] .wt-viewer-compare-view { display: flex; }
+.wt-compare-stage { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; min-height: 0; align-items: stretch; }
+.wt-compare-side { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 0; min-width: 0; background: transparent; border: none; padding: 0; cursor: default; font-family: inherit; }
+.wt-compare-side img { max-width: 100%; max-height: calc(100% - 28px); object-fit: contain; border-radius: 6px; }
+.wt-compare-meta-line { margin-top: 6px; font-size: 12px; color: var(--text-tertiary); text-align: center; font-variant-numeric: tabular-nums; }
+.wt-compare-other { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.wt-compare-headline { text-align: center; padding: 14px 8px 12px; font-size: 14px; font-weight: 600; color: #6EE7B7; font-variant-numeric: tabular-nums; }
+.wt-compare-headline.up { color: #F2C063; }
+.wt-compare-headline.down { color: #6EE7B7; }
+.wt-compare-headline.flat { color: var(--text-secondary); }
+.hidden { display: none !important; }
+
+/* ===== Stack tab (stack-* from health.html) ===== */
+.stack-card { background: rgba(255,255,255,0.04); border-radius: 16px; padding: 22px 22px 18px; backdrop-filter: blur(24px) saturate(1.2); -webkit-backdrop-filter: blur(24px) saturate(1.2); box-shadow: 0 12px 40px rgba(0,0,0,0.45); }
+.stack-head { margin-bottom: 12px; }
+.sf-eyebrow { font-family: var(--font-mono); font-size: 11px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 6px; }
+.sf-title { font-size: 24px; font-weight: 700; letter-spacing: -0.022em; color: var(--text-primary); line-height: 1.15; margin-bottom: 2px; }
+.stack-progress-text { font-family: var(--font-mono); font-size: 12px; color: var(--text-tertiary); font-variant-numeric: tabular-nums; margin-top: 6px; }
+.stack-progress-track { height: 5px; background: rgba(255,255,255,0.05); border-radius: 999px; overflow: hidden; margin: 14px 0 18px; }
+.stack-progress-fill { height: 100%; width: 0%; background: #FFFFFF; border-radius: 999px; transition: width 0.5s cubic-bezier(0.22,1,0.36,1); }
+.stack-window { margin-bottom: 14px; }
+.stack-window-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+.stack-window-icon { font-size: 16px; }
+.stack-window-title { font-size: 13px; font-weight: 700; color: var(--text-primary); }
+.stack-window-time { font-size: 11px; color: var(--text-tertiary); font-weight: 500; }
+.stack-item { display: grid; grid-template-columns: 32px 1fr auto auto; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 10px; background: rgba(255,255,255,0.035); margin-bottom: 6px; border: 1px solid transparent; transition: background 0.2s, border-color 0.2s; }
+.stack-item:hover { background: rgba(255,255,255,0.05); }
+.stack-item.taken { background: rgba(29,158,117,0.08); }
+.stack-item.taken .stack-item-name { text-decoration: line-through; color: var(--text-tertiary); }
+@keyframes pulse-red { 0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.4); } 50% { box-shadow: 0 0 0 8px rgba(239,68,68,0); } }
+.stack-item.missed { border: 1px solid rgba(239,68,68,0.45); animation: pulse-red 1.5s ease-in-out infinite; }
+.stack-item.missed .stack-check { border-color: rgba(239,68,68,0.55); }
+.stack-item.taken.missed { animation: none; border-color: transparent; }
+.stack-check { width: 28px; height: 28px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.04); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; color: transparent; transition: all 0.2s; flex-shrink: 0; font-family: inherit; padding: 0; }
+.stack-check:hover { border-color: #1D9E75; }
+.stack-check.checked { background: #1D9E75; border-color: #1D9E75; color: white; box-shadow: 0 0 12px rgba(29,158,117,0.35); }
+.stack-item-body { min-width: 0; }
+.stack-item-name { font-size: 14px; font-weight: 600; color: var(--text-primary); line-height: 1.2; display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; outline: none; }
+.stack-item-name[contenteditable="true"] { outline: 1px solid rgba(255,255,255,0.25); outline-offset: 4px; border-radius: 4px; }
+.stack-item-meta { font-size: 11px; color: var(--text-tertiary); margin-top: 2px; outline: none; cursor: text; }
+.stack-item-meta[contenteditable="true"] { outline: 1px solid rgba(255,255,255,0.2); outline-offset: 4px; border-radius: 4px; color: var(--text-secondary); }
+.stack-item-meta:empty::before { content: 'add notes…'; color: var(--text-quaternary); font-style: italic; }
+.stack-item-tag { font-family: var(--font-mono); font-size: 10px; padding: 2px 7px; border-radius: 99px; font-weight: 600; letter-spacing: 0.04em; text-transform: lowercase; }
+.stack-item-tag.tag-stack { background: rgba(216,171,48,0.15); color: #D8AB30; }
+.stack-item-tag.tag-not-ordered { background: rgba(163,45,45,0.10); color: var(--text-tertiary); }
+.stack-low-btn { background: transparent; border: 1px solid rgba(255,255,255,0.12); color: var(--text-tertiary); font-size: 10px; padding: 5px 9px; border-radius: 6px; cursor: pointer; font-family: var(--font-mono); font-weight: 600; letter-spacing: 0.04em; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; transition: all 0.15s; }
+.stack-low-btn:hover { border-color: rgba(163,45,45,0.4); color: #FF8A4D; }
+.stack-low-btn.is-low { background: rgba(163,45,45,0.10); border-color: rgba(163,45,45,0.4); color: #FF8A4D; }
+.stack-item-del { background: transparent; border: 1px solid rgba(255,255,255,0.12); color: var(--text-tertiary); cursor: pointer; font-size: 16px; padding: 4px 10px; border-radius: 6px; opacity: 0.7; transition: opacity 0.15s, color 0.15s, border-color 0.15s, background 0.15s; font-family: inherit; line-height: 1; min-width: 28px; min-height: 28px; display: inline-flex; align-items: center; justify-content: center; }
+.stack-item:hover .stack-item-del { opacity: 1; }
+.stack-item-del:hover { color: #FF6B6B; border-color: rgba(239,68,68,0.45); background: rgba(239,68,68,0.08); opacity: 1; }
+.stack-window-empty { font-size: 12px; color: var(--text-quaternary); font-style: italic; padding: 8px 12px; }
+.stack-ticker { display: flex; align-items: center; gap: 12px; padding: 10px 14px; margin-bottom: 14px; background: rgba(0,0,0,0.28); border: 1px solid rgba(255,255,255,0.04); border-radius: 10px; font-size: 12px; min-height: 36px; }
+.stack-ticker-dot { width: 8px; height: 8px; border-radius: 50%; background: #6BE3A4; flex-shrink: 0; transition: background 0.3s; }
+.stack-ticker.status-low .stack-ticker-dot { background: #FF8A4D; }
+.stack-ticker.status-missed .stack-ticker-dot { background: #FF6B6B; animation: ticker-pulse 1.5s ease-in-out infinite; }
+@keyframes ticker-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.5); } 50% { box-shadow: 0 0 0 5px rgba(239,68,68,0); } }
+.stack-ticker-label { font-family: var(--font-mono); font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-tertiary); flex-shrink: 0; }
+.stack-ticker-sep { color: var(--text-quaternary); flex-shrink: 0; }
+.stack-ticker-msg { flex: 1; font-size: 12px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: opacity 0.28s; }
+.stack-ticker-msg.is-fading { opacity: 0; }
+.stack-ticker-count { font-family: var(--font-mono); font-size: 11px; color: var(--text-tertiary); font-variant-numeric: tabular-nums; flex-shrink: 0; }
+.stack-add-wrap { margin-top: 16px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.04); }
+.stack-add-label { margin-bottom: 10px; }
+.stack-add-row { display: grid; grid-template-columns: 1fr 1fr 110px 90px; gap: 6px; align-items: center; }
+.stack-input { font-size: 13px; padding: 9px 11px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.12); background: rgba(0,0,0,0.28); color: var(--text-primary); font-family: inherit; transition: border-color 0.18s, background 0.18s; }
+.stack-input::placeholder { color: var(--text-tertiary); }
+.stack-input:focus { outline: none; border-color: rgba(255,255,255,0.40); background: rgba(0,0,0,0.36); }
+.stack-select { cursor: pointer; }
+.stack-add-btn { font-size: 13px; padding: 9px 11px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.85); background: linear-gradient(180deg, #FFFFFF 0%, #E8E5DD 100%); color: #0A0A0B; font-weight: 700; cursor: pointer; font-family: inherit; transition: transform 0.12s, background 0.18s; box-shadow: inset 0 1px 0 rgba(255,255,255,0.55), 0 4px 14px rgba(0,0,0,0.30); }
+.stack-add-btn:hover { background: linear-gradient(180deg, #FFFFFF 0%, #F2F0EA 100%); transform: translateY(-1px); }
+.stack-add-btn:active { transform: translateY(0) scale(0.97); }
+.stack-name-wrap { position: relative; }
+.stack-search-results { position: absolute; top: calc(100% + 6px); left: 0; width: max(100%, 320px); background: rgba(15,15,18,0.96); border: 1px solid rgba(255,255,255,0.12); border-radius: 12px; max-height: 280px; overflow-y: auto; backdrop-filter: blur(20px) saturate(1.2); -webkit-backdrop-filter: blur(20px) saturate(1.2); box-shadow: 0 16px 40px rgba(0,0,0,0.65); z-index: 50; padding: 6px; }
+.stack-search-results[hidden] { display: none; }
+.stack-result { display: flex; gap: 12px; align-items: center; width: 100%; padding: 9px 11px; background: transparent; border: none; border-radius: 8px; cursor: pointer; text-align: left; font-family: inherit; color: var(--text-secondary); transition: background 0.12s; }
+.stack-result:hover, .stack-result.is-focused { background: rgba(255,255,255,0.06); }
+.stack-result-icon { font-size: 17px; flex-shrink: 0; width: 24px; text-align: center; }
+.stack-result-body { min-width: 0; flex: 1; }
+.stack-result-name { font-size: 13px; font-weight: 600; color: var(--text-primary); line-height: 1.2; }
+.stack-result-meta { font-size: 11px; color: var(--text-tertiary); margin-top: 2px; }
+@media (max-width: 600px) { .stack-add-row { grid-template-columns: 1fr 1fr; } .stack-add-row .stack-add-btn { grid-column: 1 / -1; } .stack-add-row .stack-select { grid-column: 1 / -1; } .stack-search-results { width: 100%; } }
 </style>
 </head>
 <body>
@@ -537,7 +884,7 @@ main {
 
 <main>
   <div class="section">
-    <div class="section-title">Whoop</div>
+    <div class="section-title">Health</div>
     <div class="card whoop-card">
 
       <!-- DISCONNECTED STATE -->
@@ -583,118 +930,361 @@ main {
           WHOOP is still calibrating — early scores may shift over the next few weeks
         </div>
 
-        <!-- Hero recovery ring -->
-        <div class="whoop-ring-wrap">
-          <svg class="whoop-ring" viewBox="0 0 220 220" aria-hidden="true">
-            <circle class="whoop-ring-track" cx="110" cy="110" r="96"/>
-            <circle class="whoop-ring-fill"  cx="110" cy="110" r="96" id="whoopRecoveryRingFill"/>
-          </svg>
-          <div class="whoop-ring-center">
-            <div id="whoopRecoveryScore" class="whoop-ring-num">—</div>
-            <div class="whoop-ring-unit">recovery</div>
-            <div id="whoopRecoveryLabel" class="whoop-ring-label">—</div>
+        <!-- SLEEP TAB -->
+        <div class="health-tab" data-section="sleep">
+
+          <!-- Hero recovery ring -->
+          <div class="whoop-ring-wrap">
+            <svg class="whoop-ring" viewBox="0 0 220 220" aria-hidden="true">
+              <circle class="whoop-ring-track" cx="110" cy="110" r="96"/>
+              <circle class="whoop-ring-fill"  cx="110" cy="110" r="96" id="whoopRecoveryRingFill"/>
+            </svg>
+            <div class="whoop-ring-center">
+              <div id="whoopRecoveryScore" class="whoop-ring-num">—</div>
+              <div class="whoop-ring-unit">recovery</div>
+              <div id="whoopRecoveryLabel" class="whoop-ring-label">—</div>
+            </div>
+          </div>
+
+          <!-- Sleep stages bar -->
+          <div id="whoopStages" class="whoop-stages" style="display:none">
+            <div class="whoop-stages-head">
+              <span class="whoop-stages-eyebrow">Sleep stages</span>
+              <span class="whoop-stages-meta" id="whoopStagesMeta"></span>
+            </div>
+            <div class="whoop-stages-bar">
+              <div class="whoop-stage whoop-stage-rem"   id="whoopStageRem"   style="width:0%"></div>
+              <div class="whoop-stage whoop-stage-deep"  id="whoopStageDeep"  style="width:0%"></div>
+              <div class="whoop-stage whoop-stage-light" id="whoopStageLight" style="width:0%"></div>
+              <div class="whoop-stage whoop-stage-awake" id="whoopStageAwake" style="width:0%"></div>
+            </div>
+            <div class="whoop-stages-legend">
+              <div class="whoop-stages-leg"><span class="whoop-stages-dot d-rem"></span>REM <span id="whoopStageRemTxt" class="whoop-stages-num">—</span></div>
+              <div class="whoop-stages-leg"><span class="whoop-stages-dot d-deep"></span>Deep <span id="whoopStageDeepTxt" class="whoop-stages-num">—</span></div>
+              <div class="whoop-stages-leg"><span class="whoop-stages-dot d-light"></span>Light <span id="whoopStageLightTxt" class="whoop-stages-num">—</span></div>
+              <div class="whoop-stages-leg"><span class="whoop-stages-dot d-awake"></span>Awake <span id="whoopStageAwakeTxt" class="whoop-stages-num">—</span></div>
+            </div>
+          </div>
+
+          <!-- Stats grid (3-col on sleep tab — no Strain here) -->
+          <div class="whoop-stats" style="grid-template-columns: repeat(3, 1fr);">
+            <div class="whoop-stat">
+              <span class="whoop-zone" id="whoopZoneSleep"></span>
+              <div class="whoop-stat-label">Sleep</div>
+              <div class="whoop-stat-value" id="whoopSleepScore">—</div>
+              <div class="whoop-stat-sub"   id="whoopSleepDuration">—</div>
+            </div>
+            <div class="whoop-stat">
+              <span class="whoop-zone" id="whoopZoneHrv"></span>
+              <div class="whoop-stat-label">HRV</div>
+              <div class="whoop-stat-value" id="whoopHrv">—</div>
+              <div class="whoop-stat-sub">ms</div>
+            </div>
+            <div class="whoop-stat">
+              <span class="whoop-zone" id="whoopZoneRhr"></span>
+              <div class="whoop-stat-label">RHR</div>
+              <div class="whoop-stat-value" id="whoopRhr">—</div>
+              <div class="whoop-stat-sub">bpm</div>
+            </div>
+          </div>
+
+          <!-- Biomarker strip (shown when data available) -->
+          <div id="whoopBio" class="whoop-bio" style="display:none">
+            <div class="whoop-bio-item">
+              <span class="whoop-zone" id="whoopZoneSkin"></span>
+              <span class="whoop-bio-label">Skin temp</span>
+              <span class="whoop-bio-val"  id="whoopSkinTemp">—</span>
+            </div>
+            <div class="whoop-bio-item">
+              <span class="whoop-zone" id="whoopZoneSpo2"></span>
+              <span class="whoop-bio-label">Blood O₂</span>
+              <span class="whoop-bio-val"  id="whoopSpo2">—</span>
+            </div>
+            <div class="whoop-bio-item">
+              <span class="whoop-zone" id="whoopZoneResp"></span>
+              <span class="whoop-bio-label">Resp rate</span>
+              <span class="whoop-bio-val"  id="whoopResp">—</span>
+            </div>
+          </div>
+
+          <!-- Zone legend -->
+          <div class="whoop-legend">
+            <span class="whoop-legend-item"><span class="whoop-zone z-good"></span>Good</span>
+            <span class="whoop-legend-item"><span class="whoop-zone z-norm"></span>Normal</span>
+            <span class="whoop-legend-item"><span class="whoop-zone z-warn"></span>Watch</span>
+            <span class="whoop-legend-item"><span class="whoop-zone z-bad"></span>High/Low</span>
+          </div>
+
+          <!-- Today's call -->
+          <div id="whoopVerdict" class="whoop-verdict" style="display:none">
+            <div class="whoop-verdict-head">
+              <span class="whoop-verdict-eyebrow">Today's call</span>
+              <span id="whoopVerdictBadge" class="whoop-verdict-badge"></span>
+            </div>
+            <div id="whoopVerdictHeadline" class="whoop-verdict-headline"></div>
+            <div id="whoopVerdictReasons"  class="whoop-verdict-reasons"></div>
+          </div>
+
+        </div><!-- /sleep tab -->
+
+        <!-- FITNESS TAB -->
+        <div class="health-tab" data-section="fitness" hidden>
+
+          <div class="fitness-rings-row">
+            <!-- Strain ring -->
+            <div class="fitness-ring-wrap">
+              <svg class="fitness-ring" viewBox="0 0 220 220" aria-hidden="true">
+                <circle class="fitness-ring-track" cx="110" cy="110" r="96"/>
+                <circle class="fitness-ring-fill" cx="110" cy="110" r="96"
+                  id="fitnessStrainFill"
+                  style="stroke-dasharray:603.19;stroke-dashoffset:603.19;stroke:#FFFFFF"/>
+              </svg>
+              <div class="fitness-ring-center">
+                <div id="fitnessStrainScore" class="fitness-ring-num">—</div>
+                <div class="fitness-ring-unit">strain</div>
+                <div id="fitnessStrainLabel" class="fitness-ring-label" style="color:var(--text-tertiary)">—</div>
+              </div>
+            </div>
+
+            <!-- Concentric calories rings -->
+            <div class="cal-ring-wrap">
+              <svg class="cal-ring" viewBox="0 0 220 220" aria-hidden="true">
+                <circle class="cal-ring-track-outer" cx="110" cy="110" r="96"/>
+                <circle class="cal-ring-fill-outer"  cx="110" cy="110" r="96"
+                  id="calBurnedFill"
+                  style="stroke-dasharray:603.19;stroke-dashoffset:603.19"/>
+                <circle class="cal-ring-track-inner" cx="110" cy="110" r="68"/>
+                <circle class="cal-ring-fill-inner"  cx="110" cy="110" r="68"
+                  id="calConsumedFill"
+                  style="stroke-dasharray:427.26;stroke-dashoffset:427.26"/>
+              </svg>
+              <div class="cal-ring-center">
+                <div id="calBurnedNum" class="cal-ring-burned">—</div>
+                <div class="cal-ring-sep">BURNED</div>
+                <div id="calConsumedNum" class="cal-ring-consumed">—</div>
+                <div class="cal-ring-sep">EATEN</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Calorie consumed input -->
+          <div class="cal-input-row">
+            <input type="number" id="calConsumedInput" class="cal-consumed-input" placeholder="kcal eaten" inputmode="numeric" min="0" max="9999">
+            <button class="cal-save-btn" id="calSaveBtn">Save</button>
+          </div>
+
+          <!-- Activities -->
+          <div id="whoopActivities">
+            <div class="whoop-activities-head">Recent Workouts</div>
+            <div class="whoop-activity-grid" id="whoopActivityGrid">
+              <div style="grid-column:1/-1;text-align:center;padding:16px;font-size:12px;color:var(--text-tertiary)">Loading…</div>
+            </div>
+          </div>
+
+        </div><!-- /fitness tab -->
+
+        <!-- WEIGHT TAB -->
+        <div class="health-tab" data-section="weight" hidden>
+          <div class="wt-section">
+            <div class="wt-divider"><span>WEIGHT</span></div>
+            <div class="wt-card">
+              <div class="wt-row">
+                <span class="wt-num" id="wtNum">—</span>
+                <span class="wt-unit">kg</span>
+              </div>
+              <div class="wt-delta hidden" id="wtDelta"></div>
+              <div class="wt-streak hidden" id="wtStreak">🔥<span id="wtStreakNum">0 day streak</span></div>
+              <div class="wt-empty" id="wtEmpty">Log your first weight to start tracking.</div>
+              <div class="wt-chart-wrap hidden" id="wtChartWrap">
+                <div class="wt-chart-yaxis">
+                  <span id="wtYAxisMax">—</span>
+                  <span id="wtYAxisMin">—</span>
+                </div>
+                <svg class="wt-chart" viewBox="0 0 320 130" preserveAspectRatio="none">
+                  <defs>
+                    <linearGradient id="wtFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stop-color="#6ee7b7" stop-opacity="0.25"/>
+                      <stop offset="100%" stop-color="#6ee7b7" stop-opacity="0"/>
+                    </linearGradient>
+                    <filter id="wtGlow"><feGaussianBlur stdDeviation="1.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+                  </defs>
+                  <line class="wt-grid" x1="0" y1="20" x2="320" y2="20"></line>
+                  <line class="wt-grid" x1="0" y1="65" x2="320" y2="65"></line>
+                  <line class="wt-grid" x1="0" y1="110" x2="320" y2="110"></line>
+                  <g id="wtChartContent"></g>
+                </svg>
+                <div class="wt-meta" id="wtMeta">0 entries</div>
+              </div>
+              <div class="wt-legend hidden" id="wtLegend">
+                <span class="wt-legend-item"><span class="wt-legend-dot"></span>DAILY</span>
+                <span class="wt-legend-item"><span class="wt-legend-dot wt-legend-dot-avg"></span>7-DAY AVG</span>
+              </div>
+              <div class="wt-locked hidden" id="wtLocked">
+                <div class="wt-locked-info">
+                  <span class="wt-locked-check">✓</span>
+                  <div>
+                    <div class="wt-locked-label">LOGGED TODAY</div>
+                    <div class="wt-locked-value" id="wtLockedValue">— kg</div>
+                  </div>
+                </div>
+                <button class="wt-edit-btn" id="wtEditBtn">Edit</button>
+              </div>
+              <div class="wt-input-row" id="wtInputRow">
+                <div class="wt-input-top">
+                  <input type="number" step="0.1" class="wt-input" id="wtInput" placeholder="Enter weight" inputmode="decimal" aria-label="Today's weight">
+                  <span class="wt-unit-static">kg</span>
+                  <button class="wt-save-btn" id="wtSaveBtn">Save</button>
+                </div>
+              </div>
+            </div>
+
+            <button class="wt-progress-link" id="wtProgressLink" type="button" aria-label="Open progress photos">
+              <div>
+                <div class="wt-progress-label">PROGRESS PHOTOS</div>
+                <div class="wt-progress-count" id="wtProgressCount">0 photos</div>
+              </div>
+              <span class="wt-progress-arrow">→</span>
+            </button>
+          </div>
+        </div><!-- /weight tab -->
+
+        <!-- STACK TAB -->
+        <div class="health-tab" data-section="stack" hidden>
+          <div class="stack-card">
+            <div class="stack-ticker" id="stackTicker">
+              <span class="stack-ticker-dot"></span>
+              <span class="stack-ticker-label">STACK</span>
+              <span class="stack-ticker-sep">·</span>
+              <span class="stack-ticker-msg" id="stackTickerMsg">All caught up — keep it rolling</span>
+              <span class="stack-ticker-count" id="stackTickerCount">0/0</span>
+            </div>
+            <div class="stack-head">
+              <div class="sf-eyebrow">Daily stack</div>
+              <div class="sf-title">Tap each as you take it</div>
+              <div class="stack-progress-text" id="stackProgressText">— / — taken today · resets at 6 AM</div>
+            </div>
+            <div class="stack-progress-track">
+              <div id="stackProgressBar" class="stack-progress-fill"></div>
+            </div>
+            <div id="stackGroups"></div>
+            <div class="stack-add-wrap">
+              <div class="sf-eyebrow stack-add-label">Add to stack</div>
+              <div class="stack-add-row">
+                <div class="stack-name-wrap">
+                  <input id="stackAddName" type="text" placeholder="Name (e.g. B-complex)" class="stack-input" autocomplete="off" spellcheck="false" />
+                  <div id="stackSearchResults" class="stack-search-results" hidden></div>
+                </div>
+                <input id="stackAddDose" type="text" placeholder="Dose (e.g. 1 cap)" class="stack-input" />
+                <select id="stackAddWindow" class="stack-input stack-select">
+                  <option value="morning">Morning</option>
+                  <option value="lunch">Lunch</option>
+                  <option value="evening">Evening</option>
+                  <option value="anytime">Anytime</option>
+                </select>
+                <button id="stackAddBtn" class="stack-add-btn">+ Add</button>
+              </div>
+            </div>
+          </div>
+        </div><!-- /stack tab -->
+
+        <!-- Progress photos overlay (for weight tab) -->
+        <div class="wt-overlay" id="wtOverlay" aria-hidden="true">
+          <div class="wt-overlay-inner">
+            <div class="wt-overlay-h">
+              <button class="wt-back" id="wtBack" aria-label="Back">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+              </button>
+              <div class="wt-overlay-title">Progress</div>
+            </div>
+            <div class="wt-overlay-actions">
+              <button class="wt-overlay-action wt-overlay-primary" id="wtTakePhotoBtn">Take Photo</button>
+              <button class="wt-overlay-action wt-overlay-secondary" id="wtFromLibraryBtn">From Library</button>
+            </div>
+            <input type="file" id="wtFileCamera" accept="image/*" capture="environment" style="display:none">
+            <input type="file" id="wtFileLibrary" accept="image/*" style="display:none">
+            <div class="wt-photo-grid" id="wtPhotoGrid">
+              <div class="wt-photo-empty">No photos yet · tap Take Photo to start</div>
+            </div>
           </div>
         </div>
 
-        <!-- Sleep stages bar -->
-        <div id="whoopStages" class="whoop-stages" style="display:none">
-          <div class="whoop-stages-head">
-            <span class="whoop-stages-eyebrow">Sleep stages</span>
-            <span class="whoop-stages-meta" id="whoopStagesMeta"></span>
+        <!-- Camera modal -->
+        <div class="wt-cam" id="wtCam" aria-hidden="true">
+          <div class="wt-cam-stage">
+            <video class="wt-cam-video" id="wtCamVideo" autoplay playsinline muted></video>
+            <canvas id="wtCamCanvas" style="display:none"></canvas>
           </div>
-          <div class="whoop-stages-bar">
-            <div class="whoop-stage whoop-stage-rem"   id="whoopStageRem"   style="width:0%"></div>
-            <div class="whoop-stage whoop-stage-deep"  id="whoopStageDeep"  style="width:0%"></div>
-            <div class="whoop-stage whoop-stage-light" id="whoopStageLight" style="width:0%"></div>
-            <div class="whoop-stage whoop-stage-awake" id="whoopStageAwake" style="width:0%"></div>
-          </div>
-          <div class="whoop-stages-legend">
-            <div class="whoop-stages-leg"><span class="whoop-stages-dot d-rem"></span>REM <span id="whoopStageRemTxt" class="whoop-stages-num">—</span></div>
-            <div class="whoop-stages-leg"><span class="whoop-stages-dot d-deep"></span>Deep <span id="whoopStageDeepTxt" class="whoop-stages-num">—</span></div>
-            <div class="whoop-stages-leg"><span class="whoop-stages-dot d-light"></span>Light <span id="whoopStageLightTxt" class="whoop-stages-num">—</span></div>
-            <div class="whoop-stages-leg"><span class="whoop-stages-dot d-awake"></span>Awake <span id="whoopStageAwakeTxt" class="whoop-stages-num">—</span></div>
+          <div class="wt-cam-actions">
+            <button class="wt-cam-btn" id="wtCamCancel">Cancel</button>
+            <button class="wt-cam-shutter" id="wtCamShutter" aria-label="Capture"></button>
+            <button class="wt-cam-btn" id="wtCamFlip" aria-label="Flip camera">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+            </button>
           </div>
         </div>
 
-        <!-- Stats grid -->
-        <div class="whoop-stats">
-          <div class="whoop-stat">
-            <span class="whoop-zone" id="whoopZoneSleep"></span>
-            <div class="whoop-stat-label">Sleep</div>
-            <div class="whoop-stat-value" id="whoopSleepScore">—</div>
-            <div class="whoop-stat-sub"   id="whoopSleepDuration">—</div>
+        <!-- Photo viewer -->
+        <div class="wt-viewer" id="wtViewer" data-mode="single" aria-hidden="true">
+          <div class="wt-viewer-single">
+            <div class="wt-viewer-stage">
+              <img id="wtViewerImg" alt="" style="max-width:100%;max-height:100%;object-fit:contain;">
+            </div>
+            <div class="wt-viewer-meta">
+              <div class="wt-viewer-date" id="wtViewerDate">—</div>
+              <div class="wt-viewer-weight" id="wtViewerWeight">—</div>
+            </div>
+            <div class="wt-viewer-actions">
+              <button class="wt-viewer-btn wt-viewer-compare" id="wtViewerCompare">Compare</button>
+              <button class="wt-viewer-btn wt-viewer-close" id="wtViewerClose">Close</button>
+              <button class="wt-viewer-btn wt-viewer-delete" id="wtViewerDelete">Delete</button>
+            </div>
           </div>
-          <div class="whoop-stat">
-            <span class="whoop-zone" id="whoopZoneStrain"></span>
-            <div class="whoop-stat-label">Strain</div>
-            <div class="whoop-stat-value" id="whoopStrain">—</div>
-            <div class="whoop-stat-sub">today</div>
+          <div class="wt-viewer-compare-view">
+            <div class="wt-compare-stage">
+              <div class="wt-compare-side" id="wtCmpSideA">
+                <img id="wtCmpImgA" alt="">
+                <div class="wt-compare-meta-line" id="wtCmpMetaA">—</div>
+              </div>
+              <button type="button" class="wt-compare-side wt-compare-other" id="wtCmpSideB" aria-label="Compare to a different photo">
+                <img id="wtCmpImgB" alt="">
+                <div class="wt-compare-meta-line" id="wtCmpMetaB">—</div>
+              </button>
+            </div>
+            <div class="wt-compare-headline" id="wtCompareHeadline">—</div>
+            <div class="wt-viewer-actions">
+              <button class="wt-viewer-btn wt-viewer-back" id="wtCompareBack">← Back</button>
+              <button class="wt-viewer-btn wt-viewer-close" id="wtCompareClose">Close</button>
+              <button class="wt-viewer-btn wt-viewer-delete" id="wtCompareDelete">Delete</button>
+            </div>
           </div>
-          <div class="whoop-stat">
-            <span class="whoop-zone" id="whoopZoneHrv"></span>
-            <div class="whoop-stat-label">HRV</div>
-            <div class="whoop-stat-value" id="whoopHrv">—</div>
-            <div class="whoop-stat-sub">ms</div>
-          </div>
-          <div class="whoop-stat">
-            <span class="whoop-zone" id="whoopZoneRhr"></span>
-            <div class="whoop-stat-label">RHR</div>
-            <div class="whoop-stat-value" id="whoopRhr">—</div>
-            <div class="whoop-stat-sub">bpm</div>
-          </div>
-        </div>
-
-        <!-- Biomarker strip (shown when data available) -->
-        <div id="whoopBio" class="whoop-bio" style="display:none">
-          <div class="whoop-bio-item">
-            <span class="whoop-zone" id="whoopZoneSkin"></span>
-            <span class="whoop-bio-label">Skin temp</span>
-            <span class="whoop-bio-val"  id="whoopSkinTemp">—</span>
-          </div>
-          <div class="whoop-bio-item">
-            <span class="whoop-zone" id="whoopZoneSpo2"></span>
-            <span class="whoop-bio-label">Blood O₂</span>
-            <span class="whoop-bio-val"  id="whoopSpo2">—</span>
-          </div>
-          <div class="whoop-bio-item">
-            <span class="whoop-zone" id="whoopZoneResp"></span>
-            <span class="whoop-bio-label">Resp rate</span>
-            <span class="whoop-bio-val"  id="whoopResp">—</span>
-          </div>
-        </div>
-
-        <!-- Zone legend -->
-        <div class="whoop-legend">
-          <span class="whoop-legend-item"><span class="whoop-zone z-good"></span>Good</span>
-          <span class="whoop-legend-item"><span class="whoop-zone z-norm"></span>Normal</span>
-          <span class="whoop-legend-item"><span class="whoop-zone z-warn"></span>Watch</span>
-          <span class="whoop-legend-item"><span class="whoop-zone z-bad"></span>High/Low</span>
-        </div>
-
-        <!-- Today's call -->
-        <div id="whoopVerdict" class="whoop-verdict" style="display:none">
-          <div class="whoop-verdict-head">
-            <span class="whoop-verdict-eyebrow">Today's call</span>
-            <span id="whoopVerdictBadge" class="whoop-verdict-badge"></span>
-          </div>
-          <div id="whoopVerdictHeadline" class="whoop-verdict-headline"></div>
-          <div id="whoopVerdictReasons"  class="whoop-verdict-reasons"></div>
         </div>
 
         <button id="whoopDisconnectBtn" class="whoop-disconnect-btn" type="button">Disconnect</button>
-      </div>
+      </div><!-- /whoopConnected -->
     </div>
   </div>
 </main>
+
+<!-- Bottom tab bar — only shown when WHOOP is connected -->
+<div class="health-tabbar" id="healthTabbar" style="display:none">
+  <div class="health-tabbar-inner">
+    <button class="health-tab-btn active" data-htab="sleep" type="button">🌙 Sleep</button>
+    <button class="health-tab-btn" data-htab="fitness" type="button">⚡ Fitness</button>
+    <button class="health-tab-btn" data-htab="weight" type="button">⚖️ Weight</button>
+    <button class="health-tab-btn" data-htab="stack" type="button">💊 Stack</button>
+  </div>
+</div>
 
 <script>
 (function () {
   'use strict';
 
+  const $ = id => document.getElementById(id);
+
   // ===== Config — Client ID stored in localStorage, never hardcoded =====
   const CLIENT_ID_KEY = 'whoop_cfg_clientId';
   const TOKEN_KEY     = 'whoop_tokens_v1';
-  const SCOPES = 'read:recovery read:cycles read:sleep read:workout';
+  const SCOPES = 'read:recovery read:cycles read:sleep read:workout offline';
 
   function getClientId() {
     const v = localStorage.getItem(CLIENT_ID_KEY) || '';
@@ -856,7 +1446,15 @@ main {
 
     if (t.expires && Date.now() > t.expires - 60000) {
       const n = await refreshToken(t);
-      if (n) t = n;
+      if (n) {
+        t = n;
+      } else {
+        // Token expired and can't be refreshed — force reconnect
+        clearTokens();
+        document.getElementById('whoopAuthStatus').textContent = 'Session expired — please reconnect.';
+        render();
+        return;
+      }
     }
 
     document.getElementById('whoopUpdated').textContent = 'loading…';
@@ -864,10 +1462,11 @@ main {
     let anyBio = false;
 
     try {
-      const [rec, sleep, cycle] = await Promise.all([
+      const [rec, sleep, cycle, workouts] = await Promise.all([
         whoopFetch('/recovery?limit=1', t).catch(() => null),
         whoopFetch('/activity/sleep?limit=1', t).catch(() => null),
         whoopFetch('/cycle?limit=1', t).catch(() => null),
+        whoopFetch('/activity/workout?limit=5', t).catch(() => null),
       ]);
 
       // --- Recovery score + ring ---
@@ -1003,14 +1602,48 @@ main {
       const cyScore  = cyRecord && cyRecord.score;
       if (cyScore && cyScore.strain != null) {
         const strain  = cyScore.strain;
-        document.getElementById('whoopStrain').textContent = strain.toFixed(1);
         const strainCls = strain >= 18 ? 'z-bad' : strain >= 14 ? 'z-warn'
                         : strain >= 10 ? 'z-norm' : 'z-good';
-        setZone('whoopZoneStrain', strainCls);
+
+        // Fitness tab strain ring (0–21 scale)
+        const strainPct = Math.min(strain / 21, 1);
+        const C_strain = 603.19;
+        const strainFill = $('fitnessStrainFill');
+        if (strainFill) {
+          strainFill.style.strokeDashoffset = C_strain * (1 - strainPct);
+          let sc;
+          if (strain >= 18)      sc = '#FF8A8A';
+          else if (strain >= 14) sc = '#F2C063';
+          else if (strain >= 10) sc = '#6BE3A4';
+          else                   sc = '#B8B6B0';
+          strainFill.style.stroke = sc;
+          strainFill.style.filter = 'drop-shadow(0 0 14px ' + sc + '88)';
+          const scoreEl = $('fitnessStrainScore');
+          const labelEl = $('fitnessStrainLabel');
+          if (scoreEl) scoreEl.textContent = strain.toFixed(1);
+          if (labelEl) { labelEl.textContent = strain >= 18 ? 'All out' : strain >= 14 ? 'Strenuous' : strain >= 10 ? 'Moderate' : 'Light'; labelEl.style.color = sc; }
+        }
+
+        // Calories burned from kilojoule
+        const kcal = cyScore.kilojoule != null ? Math.round(cyScore.kilojoule * 0.239) : null;
+        if (kcal != null) {
+          const calBurnEl = $('calBurnedNum');
+          if (calBurnEl) calBurnEl.textContent = kcal;
+          const C_outer = 603.19;
+          const burnFill = $('calBurnedFill');
+          if (burnFill) burnFill.style.strokeDashoffset = C_outer * (1 - Math.min(kcal / 3000, 1));
+        }
+        // Restore consumed from localStorage
+        const calConsumedKey = 'health_cal_consumed_' + calDateKey();
+        const consumed = parseInt(localStorage.getItem(calConsumedKey) || '0', 10) || 0;
+        renderCalConsumed(consumed);
       }
 
+      // --- Workouts (fitness tab activities) ---
+      renderActivities(workouts);
+
       // Show biomarker strip only when at least one value is available
-      document.getElementById('whoopBio').style.display = anyBio ? 'grid' : 'none';
+      $('whoopBio').style.display = anyBio ? 'grid' : 'none';
 
       document.getElementById('whoopUpdated').textContent =
         'Updated ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -1021,21 +1654,668 @@ main {
     }
   }
 
+  // ===== Calories consumed ring helper =====
+  function calDateKey() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
+  function renderCalConsumed(consumed) {
+    const el = $('calConsumedNum');
+    const fill = $('calConsumedFill');
+    const inp = $('calConsumedInput');
+    if (el) el.textContent = consumed || '—';
+    if (inp && !inp.value) inp.value = consumed || '';
+    const C_inner = 427.26; // 2π×68
+    if (fill) fill.style.strokeDashoffset = C_inner * (1 - Math.min((consumed || 0) / 2500, 1));
+  }
+
+  // Calorie consumed save button
+  const calSaveBtn = $('calSaveBtn');
+  if (calSaveBtn) {
+    calSaveBtn.addEventListener('click', () => {
+      const v = parseInt($('calConsumedInput').value, 10) || 0;
+      localStorage.setItem('health_cal_consumed_' + calDateKey(), String(v));
+      renderCalConsumed(v);
+    });
+  }
+
+  // ===== Activities render =====
+  const SPORT_NAMES = {
+    0: 'Running', 1: 'Cycling', 16: 'Baseball', 17: 'Basketball', 18: 'Rowing',
+    19: 'Fencing', 20: 'Field Hockey', 21: 'Football', 22: 'Golf', 24: 'Ice Hockey',
+    25: 'Lacrosse', 27: 'Motorsports', 28: 'Obstacle Racing', 29: 'Powerlifting',
+    30: 'Rock Climbing', 31: 'Rowing (Ergometer)', 32: 'Rugby', 33: 'Sailing',
+    34: 'Skiing', 35: 'Soccer', 36: 'Softball', 37: 'Squash', 38: 'Swimming',
+    39: 'Tennis', 42: 'Volleyball', 43: 'Water Polo', 44: 'Wrestling',
+    45: 'Boxing', 46: 'Dance', 47: 'Pilates', 48: 'Yoga', 49: 'Weightlifting',
+    51: 'CrossFit', 52: 'Functional Fitness', 53: 'Duathlon', 54: 'Olympic Weightlifting',
+    55: 'Gymnastics', 56: 'Hiking/Rucking', 57: 'Horseback Riding', 58: 'Kayaking',
+    59: 'Martial Arts', 62: 'Meditation', 63: 'Mountain Biking', 64: 'Paddleboarding',
+    65: 'Racquetball', 66: 'Softball', 67: 'Spinning', 68: 'Stairmaster/Stepper',
+    69: 'Surfing', 70: 'Swimming (Open Water)', 71: 'Table Tennis',
+    72: 'Triathlon', 73: 'Walking', 74: 'Elliptical', 75: 'Stairclimber',
+    76: 'HIIT', 93: 'Strength Training', 95: 'Other'
+  };
+  function renderActivities(data) {
+    const grid = $('whoopActivityGrid');
+    if (!grid) return;
+    const records = data && data.records;
+    if (!records || !records.length) {
+      grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:16px;font-size:12px;color:var(--text-tertiary)">No recent workouts</div>';
+      return;
+    }
+    grid.innerHTML = records.slice(0, 6).map(w => {
+      const sc = w.score;
+      const strain = sc && sc.strain != null ? sc.strain : null;
+      const sportId = w.sport_id || 95;
+      const name = SPORT_NAMES[sportId] || ('Activity ' + sportId);
+      const dur = w.end && w.start ? Math.round((new Date(w.end) - new Date(w.start)) / 60000) : null;
+      const strainColor = strain == null ? '#76746E'
+        : strain >= 18 ? '#FF8A8A' : strain >= 14 ? '#F2C063'
+        : strain >= 10 ? '#6BE3A4' : '#B8B6B0';
+      return '<div class="whoop-activity-card">'
+        + '<div class="whoop-activity-name">'
+        + '<span class="whoop-activity-dot" style="background:' + strainColor + ';box-shadow:0 0 6px ' + strainColor + '88"></span>'
+        + name
+        + '</div>'
+        + '<div class="whoop-activity-meta">'
+        + (strain != null ? 'Strain ' + strain.toFixed(1) : '—')
+        + (dur ? ' · ' + Math.floor(dur / 60) + 'h ' + String(dur % 60).padStart(2,'0') + 'm' : '')
+        + '</div>'
+        + '</div>';
+    }).join('');
+  }
+
   // ===== Show/hide connected vs disconnected panel =====
   function render() {
     const t = loadTokens();
     if (t && t.access) {
-      document.getElementById('whoopDisconnected').style.display = 'none';
-      document.getElementById('whoopConnected').style.display    = '';
+      $('whoopDisconnected').style.display = 'none';
+      $('whoopConnected').style.display    = '';
+      const tb = $('healthTabbar');
+      if (tb) tb.style.display = '';
       loadData();
     } else {
-      document.getElementById('whoopDisconnected').style.display = '';
-      document.getElementById('whoopConnected').style.display    = 'none';
+      $('whoopDisconnected').style.display = '';
+      $('whoopConnected').style.display    = 'none';
+      const tb = $('healthTabbar');
+      if (tb) tb.style.display = 'none';
     }
   }
 
+  // ===== Tab switching =====
+  const HTAB_KEY = 'health_active_tab';
+  const VALID_TABS = ['sleep', 'fitness', 'weight', 'stack'];
+  function setHealthTab(name) {
+    document.querySelectorAll('.health-tab-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.htab === name);
+    });
+    document.querySelectorAll('.health-tab[data-section]').forEach(s => {
+      if (s.dataset.section === name) s.removeAttribute('hidden');
+      else s.setAttribute('hidden', '');
+    });
+    try { localStorage.setItem(HTAB_KEY, name); } catch (e) {}
+  }
+  document.querySelectorAll('.health-tab-btn').forEach(b => {
+    b.addEventListener('click', () => setHealthTab(b.dataset.htab));
+  });
+  (function initTab() {
+    let saved = '';
+    try { saved = localStorage.getItem(HTAB_KEY) || ''; } catch (e) {}
+    setHealthTab(VALID_TABS.includes(saved) ? saved : 'sleep');
+  })();
+
   render();
 })();
+</script>
+
+<!-- =====================================================
+     WEIGHT TRACKER (ported from gym.html; always kg)
+     ===================================================== -->
+<script>
+(function () {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const WT_KEY = 'po_coach_weights';
+  const PHOTO_KEY = 'po_coach_photos';
+
+  function wtLoad() {
+    try { const a = JSON.parse(localStorage.getItem(WT_KEY) || '[]'); return Array.isArray(a) ? a.sort((a,b) => a.dateKey.localeCompare(b.dateKey)) : []; } catch(e) { return []; }
+  }
+  function wtSave(arr) { try { localStorage.setItem(WT_KEY, JSON.stringify(arr)); } catch(e) {} }
+  function wtDateKey(d) { return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
+  function wtParseKey(key) { const [y,m,d] = key.split('-').map(Number); return new Date(y,m-1,d); }
+  function wtSmoothPath(pts) {
+    if (!pts.length) return '';
+    if (pts.length === 1) return 'M ' + pts[0].x + ' ' + pts[0].y;
+    let d = 'M ' + pts[0].x.toFixed(2) + ' ' + pts[0].y.toFixed(2);
+    for (let i = 1; i < pts.length; i++) {
+      const prev = pts[i-1], curr = pts[i], cx = (prev.x + curr.x) / 2;
+      d += ' Q ' + cx.toFixed(2) + ' ' + prev.y.toFixed(2) + ', ' + cx.toFixed(2) + ' ' + ((prev.y + curr.y)/2).toFixed(2);
+      d += ' T ' + curr.x.toFixed(2) + ' ' + curr.y.toFixed(2);
+    }
+    return d;
+  }
+
+  let wtEntries = wtLoad();
+
+  function wtSaveEntry(weight) {
+    const key = wtDateKey(new Date());
+    const existing = wtEntries.find(e => e.dateKey === key);
+    if (existing) existing.weight = weight;
+    else { wtEntries.push({ dateKey: key, weight }); wtEntries.sort((a,b) => a.dateKey.localeCompare(b.dateKey)); }
+    wtSave(wtEntries); wtRender();
+  }
+
+  function wtRender() {
+    const last = wtEntries[wtEntries.length - 1] || null;
+    const todayKey = wtDateKey(new Date());
+    const todayEntry = wtEntries.find(e => e.dateKey === todayKey);
+    if ($('wtNum')) $('wtNum').textContent = last ? last.weight.toFixed(1) : '—';
+    if (todayEntry) {
+      if ($('wtEmpty')) $('wtEmpty').classList.add('hidden');
+      if ($('wtLockedValue')) $('wtLockedValue').textContent = todayEntry.weight.toFixed(1) + ' kg';
+      if ($('wtLocked')) $('wtLocked').classList.remove('hidden');
+      if ($('wtInputRow')) $('wtInputRow').classList.add('hidden');
+    } else {
+      if (wtEntries.length === 0) { if ($('wtEmpty')) $('wtEmpty').classList.remove('hidden'); }
+      else { if ($('wtEmpty')) $('wtEmpty').classList.add('hidden'); }
+      if ($('wtLocked')) $('wtLocked').classList.add('hidden');
+      if ($('wtInputRow')) $('wtInputRow').classList.remove('hidden');
+      if (last && $('wtInput') && !$('wtInput').value) $('wtInput').value = last.weight.toFixed(1);
+    }
+    if (wtEntries.length >= 2) {
+      if ($('wtChartWrap')) $('wtChartWrap').classList.remove('hidden');
+      if ($('wtLegend')) $('wtLegend').classList.remove('hidden');
+      wtRenderChart(); wtRenderDelta();
+    } else {
+      if ($('wtChartWrap')) $('wtChartWrap').classList.add('hidden');
+      if ($('wtLegend')) $('wtLegend').classList.add('hidden');
+      if ($('wtDelta')) $('wtDelta').classList.add('hidden');
+    }
+    wtRenderStreak();
+  }
+
+  function wtRenderStreak() {
+    const el = $('wtStreak'); if (!el) return;
+    let streak = 0, cursor = new Date();
+    if (!wtEntries.find(e => e.dateKey === wtDateKey(cursor))) cursor.setDate(cursor.getDate() - 1);
+    while (wtEntries.find(e => e.dateKey === wtDateKey(cursor))) { streak++; cursor.setDate(cursor.getDate() - 1); }
+    if (streak >= 2) { if ($('wtStreakNum')) $('wtStreakNum').textContent = streak + ' day streak'; el.classList.remove('hidden'); }
+    else el.classList.add('hidden');
+  }
+
+  function wtRenderChart() {
+    const recent = wtEntries.slice(-30);
+    const weights = recent.map(e => e.weight);
+    const min = Math.min(...weights), max = Math.max(...weights);
+    const pad = Math.max((max - min) * 0.15, 0.5);
+    const yMin = min - pad, yMax = max + pad;
+    const xLeft = 8, xRight = 312, yTop = 20, yBot = 110;
+    const xRange = xRight - xLeft, yRange = yBot - yTop;
+    const xFor = i => recent.length === 1 ? xRight : xLeft + (i / (recent.length - 1)) * xRange;
+    const yFor = w => yBot - ((w - yMin) / (yMax - yMin)) * yRange;
+    const points = recent.map((e,i) => ({ x: xFor(i), y: yFor(e.weight) }));
+    const linePath = wtSmoothPath(points);
+    const areaPath = linePath + ' L ' + points[points.length-1].x.toFixed(2) + ' ' + yBot + ' L ' + points[0].x.toFixed(2) + ' ' + yBot + ' Z';
+    const avgPoints = recent.map((_,i) => {
+      const win = recent.slice(Math.max(0,i-6), i+1);
+      const avg = win.reduce((s,p) => s + p.weight, 0) / win.length;
+      return { x: xFor(i), y: yFor(avg) };
+    });
+    const avgPath = wtSmoothPath(avgPoints);
+    let html = '<path class="wt-avg-line" d="' + avgPath + '"></path>'
+             + '<path class="wt-area" d="' + areaPath + '"></path>'
+             + '<path class="wt-line" filter="url(#wtGlow)" d="' + linePath + '"></path>';
+    points.forEach((p,i) => {
+      const cls = i === points.length - 1 ? 'wt-dot-today' : 'wt-dot';
+      const r = i === points.length - 1 ? 5 : 3;
+      html += '<circle class="' + cls + '" cx="' + p.x.toFixed(2) + '" cy="' + p.y.toFixed(2) + '" r="' + r + '"/>';
+    });
+    if ($('wtChartContent')) $('wtChartContent').innerHTML = html;
+    if ($('wtYAxisMax')) $('wtYAxisMax').textContent = yMax.toFixed(1);
+    if ($('wtYAxisMin')) $('wtYAxisMin').textContent = yMin.toFixed(1);
+    if ($('wtMeta')) $('wtMeta').textContent = wtEntries.length + ' ' + (wtEntries.length === 1 ? 'entry' : 'entries') + ' · last ' + recent.length + ' days';
+  }
+
+  function wtRenderDelta() {
+    const last = wtEntries[wtEntries.length - 1];
+    const lastDate = wtParseKey(last.dateKey);
+    const cutoff = new Date(lastDate); cutoff.setDate(cutoff.getDate() - 7);
+    const baseline = wtEntries.find(e => wtParseKey(e.dateKey) >= cutoff) || wtEntries[0];
+    const diff = last.weight - baseline.weight;
+    const el = $('wtDelta'); if (!el) return;
+    if (Math.abs(diff) < 0.05) { el.classList.add('hidden'); return; }
+    el.textContent = (diff > 0 ? '↑ +' : '↓ −') + Math.abs(diff).toFixed(1) + ' kg · last 7d';
+    el.classList.toggle('up', diff > 0);
+    el.classList.toggle('down', diff < 0);
+    el.classList.remove('hidden');
+  }
+
+  // Wire weight UI
+  if ($('wtSaveBtn')) $('wtSaveBtn').addEventListener('click', () => { const v = parseFloat($('wtInput').value); if (!isNaN(v) && v > 0) wtSaveEntry(v); });
+  if ($('wtInput')) $('wtInput').addEventListener('keydown', e => { if (e.key === 'Enter' && $('wtSaveBtn')) $('wtSaveBtn').click(); });
+  if ($('wtEditBtn')) $('wtEditBtn').addEventListener('click', () => {
+    if ($('wtLocked')) $('wtLocked').classList.add('hidden');
+    if ($('wtInputRow')) $('wtInputRow').classList.remove('hidden');
+    const todayEntry = wtEntries.find(e => e.dateKey === wtDateKey(new Date()));
+    if (todayEntry && $('wtInput')) { $('wtInput').value = todayEntry.weight.toFixed(1); $('wtInput').focus(); $('wtInput').select(); }
+  });
+
+  // ===== Progress Photos =====
+  let photos = [];
+  try { const raw = localStorage.getItem(PHOTO_KEY); if (raw) photos = JSON.parse(raw); } catch(e) { photos = []; }
+  function photosSave() { try { localStorage.setItem(PHOTO_KEY, JSON.stringify(photos)); return true; } catch(e) { return false; } }
+  function compressPhoto(dataUrl, maxDim, quality) {
+    maxDim = maxDim || 1080; quality = quality == null ? 0.75 : quality;
+    return new Promise(resolve => {
+      const img = new Image();
+      img.onload = () => {
+        let w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+        if (w > maxDim || h > maxDim) { if (w >= h) { h = Math.round(h * (maxDim/w)); w = maxDim; } else { w = Math.round(w * (maxDim/h)); h = maxDim; } }
+        const c = document.createElement('canvas'); c.width = w; c.height = h;
+        c.getContext('2d').drawImage(img, 0, 0, w, h);
+        try { resolve(c.toDataURL('image/jpeg', quality)); } catch { resolve(dataUrl); }
+      };
+      img.onerror = () => resolve(dataUrl);
+      img.src = dataUrl;
+    });
+  }
+  function photoFmtDate(key) {
+    const d = wtParseKey(key);
+    return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()] + ' ' + d.getDate();
+  }
+  function photoCurrentWeight() {
+    const last = wtEntries[wtEntries.length - 1];
+    return last ? (last.weight.toFixed(1) + ' kg') : '—';
+  }
+  function photosRender() {
+    const grid = $('wtPhotoGrid'); if (!grid) return;
+    if (!photos.length) {
+      grid.innerHTML = '<div class="wt-photo-empty">No photos yet · tap Take Photo to start</div>';
+    } else {
+      grid.innerHTML = photos.map(p =>
+        '<button class="wt-photo-card" data-id="' + p.id + '" type="button">' +
+        '<img src="' + p.dataUrl + '" alt="">' +
+        '<div class="wt-photo-overlay"></div>' +
+        '<div class="wt-photo-meta"><span class="wt-photo-date">' + photoFmtDate(p.dateKey) + '</span><span class="wt-photo-weight">' + (p.weight || '—') + '</span></div>' +
+        '</button>'
+      ).join('');
+      grid.querySelectorAll('.wt-photo-card').forEach(card => card.addEventListener('click', () => openPhoto(card.dataset.id)));
+    }
+    const cnt = $('wtProgressCount'); if (!cnt) return;
+    if (!photos.length) cnt.textContent = '0 photos';
+    else if (photos.length === 1) cnt.textContent = '1 photo · latest ' + photoFmtDate(photos[0].dateKey);
+    else cnt.textContent = photos.length + ' photos · latest ' + photoFmtDate(photos[0].dateKey);
+  }
+  async function photosAdd(dataUrl) {
+    let compressed = dataUrl;
+    try { compressed = await compressPhoto(dataUrl); } catch {}
+    const id = 'p' + Date.now() + '_' + Math.floor(Math.random() * 999);
+    const entry = { id, dataUrl: compressed, dateKey: wtDateKey(new Date()), weight: photoCurrentWeight() };
+    photos.unshift(entry);
+    if (!photosSave()) {
+      try { entry.dataUrl = await compressPhoto(dataUrl, 800, 0.6); } catch {}
+      if (!photosSave()) { photos.shift(); alert('Storage full — delete older photos first.'); return; }
+    }
+    photosRender();
+  }
+  function fileToPhoto(file) { const r = new FileReader(); r.onload = e => photosAdd(e.target.result); r.readAsDataURL(file); }
+
+  if ($('wtProgressLink')) $('wtProgressLink').addEventListener('click', () => { photosRender(); if ($('wtOverlay')) { $('wtOverlay').classList.add('is-open'); document.body.style.overflow = 'hidden'; } });
+  if ($('wtBack')) $('wtBack').addEventListener('click', () => { if ($('wtOverlay')) { $('wtOverlay').classList.remove('is-open'); document.body.style.overflow = ''; } });
+
+  let camStream = null, camFacing = 'environment';
+  async function openCam() {
+    if ($('wtCam')) $('wtCam').classList.add('is-open');
+    try { camStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: camFacing } }, audio: false }); if ($('wtCamVideo')) $('wtCamVideo').srcObject = camStream; }
+    catch(e) {
+      try { camStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false }); if ($('wtCamVideo')) $('wtCamVideo').srcObject = camStream; }
+      catch(e2) { closeCam(); alert('Camera unavailable. Use "From Library" instead.'); throw e2; }
+    }
+  }
+  function closeCam() {
+    if (camStream) { camStream.getTracks().forEach(t => t.stop()); camStream = null; }
+    if ($('wtCamVideo')) $('wtCamVideo').srcObject = null;
+    if ($('wtCam')) $('wtCam').classList.remove('is-open');
+  }
+  if ($('wtTakePhotoBtn')) $('wtTakePhotoBtn').addEventListener('click', async () => {
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) { try { await openCam(); return; } catch(e) {} }
+    if ($('wtFileCamera')) $('wtFileCamera').click();
+  });
+  if ($('wtFileCamera')) $('wtFileCamera').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; if (f) fileToPhoto(f); e.target.value = ''; });
+  if ($('wtFromLibraryBtn')) $('wtFromLibraryBtn').addEventListener('click', () => { if ($('wtFileLibrary')) $('wtFileLibrary').click(); });
+  if ($('wtFileLibrary')) $('wtFileLibrary').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; if (f) fileToPhoto(f); e.target.value = ''; });
+  if ($('wtCamCancel')) $('wtCamCancel').addEventListener('click', closeCam);
+  if ($('wtCamFlip')) $('wtCamFlip').addEventListener('click', async () => { camFacing = camFacing === 'environment' ? 'user' : 'environment'; if (camStream) camStream.getTracks().forEach(t => t.stop()); try { await openCam(); } catch(e) {} });
+  if ($('wtCamShutter')) $('wtCamShutter').addEventListener('click', () => {
+    const video = $('wtCamVideo'), canvas = $('wtCamCanvas');
+    if (!video || !video.videoWidth) return;
+    canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+    closeCam(); photosAdd(canvas.toDataURL('image/jpeg', 0.85));
+  });
+
+  let activePhotoId = null, comparePhotoId = null, pvDeleteConfirm = false;
+  function openPhoto(id) {
+    const p = photos.find(x => x.id === id); if (!p) return;
+    activePhotoId = id;
+    if ($('wtViewerImg')) $('wtViewerImg').src = p.dataUrl;
+    if ($('wtViewerDate')) $('wtViewerDate').textContent = photoFmtDate(p.dateKey).toUpperCase();
+    if ($('wtViewerWeight')) $('wtViewerWeight').textContent = p.weight || '—';
+    if ($('wtViewer')) { $('wtViewer').dataset.mode = 'single'; $('wtViewer').classList.add('is-open'); }
+    pvDeleteConfirm = false;
+    if ($('wtViewerDelete')) { $('wtViewerDelete').textContent = 'Delete'; $('wtViewerDelete').classList.remove('is-confirm'); }
+    if ($('wtViewerCompare')) { $('wtViewerCompare').disabled = photos.length < 2; $('wtViewerCompare').style.opacity = photos.length < 2 ? '0.4' : ''; }
+  }
+  function closePhoto() {
+    if ($('wtViewer')) { $('wtViewer').classList.remove('is-open'); $('wtViewer').dataset.mode = 'single'; }
+    activePhotoId = null; comparePhotoId = null;
+  }
+  function parseWeightStr(w) { const m = String(w || '').match(/-?\d+(\.\d+)?/); return m ? parseFloat(m[0]) : null; }
+  function fmtDelta(diff, units) {
+    if (diff == null) return '';
+    if (Math.abs(diff) < 0.05) return '· no change';
+    return '· ' + (diff > 0 ? '+' : '−') + Math.abs(diff).toFixed(1) + ' ' + units;
+  }
+  function defaultCompareFor(id) {
+    const idx = photos.findIndex(p => p.id === id);
+    if (idx === -1) return null;
+    return photos[idx + 1] ? photos[idx + 1].id : (photos[idx - 1] ? photos[idx - 1].id : null);
+  }
+  function openCompare(activeId, otherId) {
+    const A = photos.find(p => p.id === activeId), B = photos.find(p => p.id === otherId);
+    if (!A || !B) return;
+    activePhotoId = activeId; comparePhotoId = otherId;
+    if ($('wtCmpImgA')) $('wtCmpImgA').src = A.dataUrl;
+    if ($('wtCmpImgB')) $('wtCmpImgB').src = B.dataUrl;
+    if ($('wtCmpMetaA')) $('wtCmpMetaA').textContent = photoFmtDate(A.dateKey) + ' · ' + (A.weight || '—');
+    if ($('wtCmpMetaB')) $('wtCmpMetaB').textContent = photoFmtDate(B.dateKey) + ' · ' + (B.weight || '—');
+    const wA = parseWeightStr(A.weight), wB = parseWeightStr(B.weight);
+    const headEl = $('wtCompareHeadline');
+    let cls = 'flat', headline = photoFmtDate(A.dateKey) + ' → ' + photoFmtDate(B.dateKey);
+    if (wA != null && wB != null) { const diff = wA - wB; headline += ' ' + fmtDelta(diff, 'kg'); cls = Math.abs(diff) < 0.05 ? 'flat' : diff > 0 ? 'up' : 'down'; }
+    if (headEl) { headEl.textContent = headline; headEl.className = 'wt-compare-headline ' + cls; }
+    if ($('wtViewer')) { $('wtViewer').dataset.mode = 'compare'; $('wtViewer').classList.add('is-open'); }
+    pvDeleteConfirm = false;
+    if ($('wtCompareDelete')) { $('wtCompareDelete').textContent = 'Delete'; $('wtCompareDelete').classList.remove('is-confirm'); }
+  }
+  function deleteActivePhoto(btn) {
+    if (!activePhotoId) return;
+    if (!pvDeleteConfirm) { pvDeleteConfirm = true; btn.textContent = 'Confirm delete?'; btn.classList.add('is-confirm'); setTimeout(() => { pvDeleteConfirm = false; btn.textContent = 'Delete'; btn.classList.remove('is-confirm'); }, 3000); return; }
+    photos = photos.filter(p => p.id !== activePhotoId); photosSave(); photosRender(); closePhoto();
+  }
+
+  if ($('wtViewerClose')) $('wtViewerClose').addEventListener('click', closePhoto);
+  if ($('wtCompareClose')) $('wtCompareClose').addEventListener('click', closePhoto);
+  if ($('wtViewerDelete')) $('wtViewerDelete').addEventListener('click', () => deleteActivePhoto($('wtViewerDelete')));
+  if ($('wtCompareDelete')) $('wtCompareDelete').addEventListener('click', () => deleteActivePhoto($('wtCompareDelete')));
+  if ($('wtViewerCompare')) $('wtViewerCompare').addEventListener('click', () => {
+    if (!activePhotoId) return;
+    const otherId = defaultCompareFor(activePhotoId);
+    if (!otherId) { alert('Need at least one other photo to compare.'); return; }
+    openCompare(activePhotoId, otherId);
+  });
+  if ($('wtCompareBack')) $('wtCompareBack').addEventListener('click', () => { if (activePhotoId) { if ($('wtViewer')) $('wtViewer').dataset.mode = 'single'; } else closePhoto(); });
+  if ($('wtCmpSideB')) $('wtCmpSideB').addEventListener('click', () => {
+    if (!activePhotoId) return;
+    const others = photos.filter(p => p.id !== activePhotoId);
+    if (!others.length) return;
+    const curIdx = others.findIndex(p => p.id === comparePhotoId);
+    openCompare(activePhotoId, others[(curIdx + 1) % others.length].id);
+  });
+
+  wtRender();
+  photosRender();
+})();
+</script>
+
+<!-- =====================================================
+     STACK (copied from health.html IIFE)
+     ===================================================== -->
+<script>
+(() => {
+  'use strict';
+  const storeGet = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
+  const storeSet = (k, v) => localStorage.setItem(k, JSON.stringify(v));
+
+  function getActiveDate() {
+    const now = new Date();
+    if (now.getHours() < 6) now.setDate(now.getDate() - 1);
+    return now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
+  }
+
+  const TEMPLATE_VERSION = 5;
+  const STACK_DEFAULTS = [
+    { id: 'm1', name: 'XXXXX - Supplement of choice', dose: '', window: 'morning', note: 'how much MG, meal times, any data below', tag: null,    ordered: true  },
+    { id: 'm2', name: 'XXXXX - Supplement of choice', dose: '', window: 'morning', note: 'how much MG, meal times, any data below', tag: 'stack', ordered: true  },
+    { id: 'm3', name: 'XXXXX - Supplement of choice', dose: '', window: 'morning', note: 'how much MG, meal times, any data below', tag: null,    ordered: true  },
+    { id: 'l1', name: 'XXXXX - Supplement of choice', dose: '', window: 'lunch',   note: 'how much MG, meal times, any data below', tag: null,    ordered: true  },
+    { id: 'l2', name: 'XXXXX - Supplement of choice', dose: '', window: 'lunch',   note: 'how much MG, meal times, any data below', tag: null,    ordered: true  },
+    { id: 'e1', name: 'XXXXX - Supplement of choice', dose: '', window: 'evening', note: 'how much MG, meal times, any data below', tag: null,    ordered: true  },
+    { id: 'e2', name: 'XXXXX - Supplement of choice', dose: '', window: 'evening', note: 'how much MG, meal times, any data below', tag: 'not-ordered', ordered: false },
+    { id: 'e3', name: 'XXXXX - Supplement of choice', dose: '', window: 'evening', note: 'how much MG, meal times, any data below', tag: null,    ordered: true  },
+  ];
+  const STACK_WINDOWS = [
+    { key: 'morning', icon: '🌅', title: 'Morning', time: '7–10 AM', cutoffHour: 10 },
+    { key: 'lunch',   icon: '🍽️', title: 'Lunch',   time: '12–2 PM', cutoffHour: 14 },
+    { key: 'evening', icon: '🌙', title: 'Evening', time: '9–11 PM', cutoffHour: 23 },
+    { key: 'anytime', icon: '⏱️', title: 'Anytime', time: 'No fixed window', cutoffHour: null },
+  ];
+  const SUPPLEMENT_DB = [
+    { name: 'Creatine monohydrate', dose: '5g', window: 'anytime', note: 'Daily — consistency matters more than timing', icon: '🏋️', aliases: ['creatine'] },
+    { name: 'Vitamin D3', dose: '2000–5000 IU', window: 'lunch', note: 'Fat-soluble — take with biggest meal', icon: '☀️', aliases: ['vit d', 'vitamin d', 'd3'] },
+    { name: 'Magnesium glycinate', dose: '200–400mg', window: 'evening', note: '30–60 min before bed — sleep helper', icon: '🌙', aliases: ['magnesium', 'mag glycinate'] },
+    { name: 'Omega-3 (Fish oil)', dose: '2–3g EPA+DHA', window: 'lunch', note: 'With biggest fatty meal', icon: '🐟', aliases: ['omega 3', 'fish oil'] },
+    { name: 'Vitamin K2 (MK-7)', dose: '100–200 mcg', window: 'lunch', note: 'Pairs with D3 — same meal', icon: '💊', aliases: ['k2'] },
+    { name: 'Zinc', dose: '15–30mg', window: 'evening', note: 'With food — not with calcium or iron', icon: '💊', aliases: ['zinc'] },
+    { name: 'L-theanine', dose: '100–200mg', window: 'morning', note: 'Stacks with caffeine 2:1', icon: '🧠', aliases: ['theanine'] },
+    { name: 'Melatonin', dose: '0.3–3mg', window: 'evening', note: '30–60 min before bed — start low', icon: '🌙', aliases: ['melatonin'] },
+    { name: 'Ashwagandha', dose: '300–600mg', window: 'evening', note: 'KSM-66 form — stress and cortisol', icon: '🌿', aliases: ['ashwagandha'] },
+    { name: 'Probiotics', dose: '10–50 billion CFU', window: 'morning', note: 'Empty stomach or with food', icon: '🦠', aliases: ['probiotic'] },
+    { name: 'B-complex', dose: '1 cap', window: 'morning', note: 'All B vitamins — energy', icon: '⚡', aliases: ['b complex'] },
+    { name: 'Whey protein', dose: '25–40g', window: 'anytime', note: 'Post-workout or to hit daily target', icon: '🥤', aliases: ['whey'] },
+    { name: 'Curcumin', dose: '500–1000mg', window: 'lunch', note: 'With black pepper + fat', icon: '🌿', aliases: ['curcumin', 'turmeric'] },
+    { name: 'Lion\'s mane', dose: '500–1000mg', window: 'morning', note: 'Cognitive support — daily', icon: '🍄', aliases: ['lions mane'] },
+  ];
+
+  let todayKey = `stack:taken:${getActiveDate()}`;
+  function getItems() {
+    const storedVersion = storeGet('stack:version');
+    const stored = storeGet('stack:items');
+    if (!stored || !Array.isArray(stored) || !stored.length || storedVersion !== TEMPLATE_VERSION) {
+      const fresh = JSON.parse(JSON.stringify(STACK_DEFAULTS));
+      storeSet('stack:items', fresh); storeSet('stack:version', TEMPLATE_VERSION); return fresh;
+    }
+    return stored;
+  }
+  function setItems(items) { storeSet('stack:items', items); }
+  function getTaken() { return storeGet(todayKey) || {}; }
+  function setTaken(map) { storeSet(todayKey, map); }
+  function getLow() { return storeGet('stack:low') || []; }
+  function setLow(arr) { storeSet('stack:low', arr); }
+
+  function toggleTaken(id) { const t = getTaken(); if (t[id]) delete t[id]; else t[id] = Date.now(); setTaken(t); render(); }
+  function toggleLow(id) { const l = getLow(); if (l.includes(id)) setLow(l.filter(x => x !== id)); else { l.push(id); setLow(l); } render(); }
+  function deleteItem(id) { setItems(getItems().filter(i => i.id !== id)); const t = getTaken(); delete t[id]; setTaken(t); setLow(getLow().filter(x => x !== id)); render(); }
+  function addItem(name, dose, windowKey, note) {
+    const v = String(name || '').trim(); if (!v) return;
+    const items = getItems();
+    const id = 'custom_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+    items.push({ id, name: v, dose: String(dose || '').trim(), window: ['morning','lunch','evening','anytime'].includes(windowKey) ? windowKey : 'anytime', note: String(note || '').trim(), tag: null, ordered: true });
+    setItems(items); render();
+  }
+  function updateItem(id, field, value) { const items = getItems(); const item = items.find(i => i.id === id); if (!item) return; item[field] = value; setItems(items); }
+
+  function escapeHtml(str) { return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function metaText(item) { const p = []; if (item.dose) p.push(item.dose); if (item.note) p.push(item.note); return p.join(' · '); }
+
+  function render() {
+    const items = getItems(), taken = getTaken(), low = getLow();
+    const takenCount = items.filter(i => taken[i.id]).length;
+    const el = document.getElementById('stackProgressText');
+    if (el) el.textContent = takenCount + ' / ' + items.length + ' taken today · resets at 6 AM';
+    const bar = document.getElementById('stackProgressBar');
+    if (bar) bar.style.width = (items.length ? (takenCount / items.length) * 100 : 0) + '%';
+    const groupsEl = document.getElementById('stackGroups'); if (!groupsEl) return;
+    groupsEl.innerHTML = '';
+    const now = new Date(), nowHour = now.getHours() + now.getMinutes() / 60;
+    STACK_WINDOWS.forEach(win => {
+      const winItems = items.filter(i => (i.window || 'anytime') === win.key);
+      if (!winItems.length) return;
+      const group = document.createElement('div'); group.className = 'stack-window';
+      group.innerHTML = '<div class="stack-window-header"><span class="stack-window-icon">' + win.icon + '</span><span class="stack-window-title">' + win.title + '</span><span class="stack-window-time">' + win.time + '</span></div>';
+      const isPastCutoff = win.cutoffHour !== null && nowHour > win.cutoffHour;
+      winItems.forEach(item => {
+        const isTaken = !!taken[item.id], isLow = low.includes(item.id), isMissed = !isTaken && isPastCutoff;
+        const row = document.createElement('div');
+        row.className = 'stack-item' + (isTaken ? ' taken' : '') + (isMissed ? ' missed' : '');
+        let tagHtml = '';
+        if (item.tag === 'stack') tagHtml = '<span class="stack-item-tag tag-stack">stack</span>';
+        else if (item.tag === 'not-ordered') tagHtml = '<span class="stack-item-tag tag-not-ordered">not ordered</span>';
+        row.innerHTML = '<button class="stack-check ' + (isTaken ? 'checked' : '') + '" data-action="toggle" data-id="' + item.id + '">' + (isTaken ? '✓' : '') + '</button>'
+          + '<div class="stack-item-body"><div class="stack-item-name" data-edit="name" data-id="' + item.id + '"><span class="stack-item-name-text">' + escapeHtml(item.name) + '</span>' + tagHtml + '</div>'
+          + '<div class="stack-item-meta" data-edit="meta" data-id="' + item.id + '">' + escapeHtml(metaText(item)) + '</div></div>'
+          + '<button class="stack-low-btn ' + (isLow ? 'is-low' : '') + '" data-action="low" data-id="' + item.id + '">↓ Running low</button>'
+          + '<button class="stack-item-del" data-action="del" data-id="' + item.id + '">×</button>';
+        group.appendChild(row);
+      });
+      groupsEl.appendChild(group);
+    });
+    if (!groupsEl.children.length) groupsEl.innerHTML = '<div class="stack-window-empty">No items yet — add one below to start your stack.</div>';
+    renderTicker();
+  }
+
+  let tickerIndex = 0, tickerInterval = null, cachedIssues = [];
+  function getStackIssues() {
+    const items = getItems(), taken = getTaken(), low = getLow();
+    const now = new Date(), nowHour = now.getHours() + now.getMinutes() / 60;
+    const missed = [], lowList = [];
+    items.forEach(item => {
+      const win = STACK_WINDOWS.find(w => w.key === (item.window || 'anytime'));
+      const isPastCutoff = win && win.cutoffHour !== null && nowHour > win.cutoffHour;
+      if (isPastCutoff && !taken[item.id]) missed.push({ type: 'missed', text: item.name + ' — missed ' + (win ? win.title.toLowerCase() : '') + ' dose' });
+      if (low.includes(item.id)) lowList.push({ type: 'low', text: item.name + ' — running low, reorder soon' });
+    });
+    return [...missed, ...lowList];
+  }
+  function renderTicker() {
+    const issues = getStackIssues();
+    const tickerEl = document.getElementById('stackTicker');
+    const msgEl = document.getElementById('stackTickerMsg');
+    const countEl = document.getElementById('stackTickerCount');
+    if (!tickerEl || !msgEl || !countEl) return;
+    cachedIssues = issues;
+    if (!issues.length) { msgEl.textContent = 'All caught up — keep it rolling'; tickerEl.classList.remove('status-low', 'status-missed'); countEl.textContent = '0/' + getItems().length; tickerIndex = 0; return; }
+    const hasMissed = issues.some(i => i.type === 'missed');
+    tickerEl.classList.remove('status-low', 'status-missed');
+    tickerEl.classList.add(hasMissed ? 'status-missed' : 'status-low');
+    if (tickerIndex >= issues.length) tickerIndex = 0;
+    msgEl.textContent = issues[tickerIndex].text;
+    countEl.textContent = issues.length + '/' + getItems().length;
+  }
+  function cycleTicker() {
+    if (cachedIssues.length <= 1) { renderTicker(); return; }
+    const msgEl = document.getElementById('stackTickerMsg'); if (!msgEl) return;
+    msgEl.classList.add('is-fading');
+    setTimeout(() => { tickerIndex++; renderTicker(); msgEl.classList.remove('is-fading'); }, 280);
+  }
+  if (tickerInterval) clearInterval(tickerInterval);
+  tickerInterval = setInterval(cycleTicker, 5000);
+
+  function placeCaretAtEnd(el) { const r = document.createRange(); r.selectNodeContents(el); r.collapse(false); const s = window.getSelection(); s.removeAllRanges(); s.addRange(r); }
+
+  const groupsEl = document.getElementById('stackGroups');
+  if (groupsEl) {
+    groupsEl.addEventListener('click', e => {
+      const btn = e.target.closest('[data-action]'); if (!btn) return;
+      e.stopPropagation();
+      if (btn.dataset.action === 'toggle') toggleTaken(btn.dataset.id);
+      else if (btn.dataset.action === 'low') toggleLow(btn.dataset.id);
+      else if (btn.dataset.action === 'del') deleteItem(btn.dataset.id);
+    });
+    groupsEl.addEventListener('pointerdown', e => { const btn = e.target.closest('[data-action="del"]'); if (!btn) return; e.preventDefault(); e.stopPropagation(); deleteItem(btn.dataset.id); });
+    groupsEl.addEventListener('click', e => {
+      const editEl = e.target.closest('[data-edit]'); if (!editEl) return;
+      if (e.target.closest('[data-action]')) return;
+      if (editEl.getAttribute('contenteditable') === 'true') return;
+      const id = editEl.dataset.id, field = editEl.dataset.edit;
+      if (field === 'name') {
+        const textSpan = editEl.querySelector('.stack-item-name-text'); if (!textSpan) return;
+        textSpan.setAttribute('contenteditable', 'true'); textSpan.focus(); placeCaretAtEnd(textSpan);
+        const finish = (commit) => { textSpan.removeAttribute('contenteditable'); if (commit) { const nv = textSpan.textContent.trim(); if (nv) updateItem(id, 'name', nv); else render(); } else render(); };
+        textSpan.addEventListener('blur', () => finish(true), { once: true });
+        textSpan.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); textSpan.blur(); } if (e.key === 'Escape') { textSpan.blur(); render(); } });
+      }
+      if (field === 'meta') {
+        editEl.setAttribute('contenteditable', 'true'); editEl.focus(); placeCaretAtEnd(editEl);
+        const finish = (commit) => { editEl.removeAttribute('contenteditable'); if (commit) { const parts = editEl.textContent.trim().split(/\s*·\s*/); updateItem(id, 'dose', parts[0] || ''); updateItem(id, 'note', parts.slice(1).join(' · ')); } render(); };
+        editEl.addEventListener('blur', () => finish(true), { once: true });
+        editEl.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); editEl.blur(); } if (e.key === 'Escape') { editEl.blur(); render(); } });
+      }
+    });
+  }
+
+  const nameInput = document.getElementById('stackAddName');
+  const doseInput = document.getElementById('stackAddDose');
+  const winSelect = document.getElementById('stackAddWindow');
+  const addBtn = document.getElementById('stackAddBtn');
+  const resultsEl = document.getElementById('stackSearchResults');
+  let pendingNote = '';
+
+  function searchSupplements(q) {
+    const query = q.toLowerCase().trim(); if (!query) return [];
+    const starts = [], contains = [];
+    SUPPLEMENT_DB.forEach(s => {
+      const nameLC = s.name.toLowerCase(), aliases = (s.aliases || []).map(a => a.toLowerCase()), all = [nameLC, ...aliases];
+      if (all.some(n => n.startsWith(query))) starts.push(s);
+      else if (all.some(n => n.includes(query))) contains.push(s);
+    });
+    return [...starts, ...contains].slice(0, 6);
+  }
+  function renderSearchResults(q) {
+    if (!resultsEl) return;
+    const matches = searchSupplements(q);
+    if (!q.trim() || !matches.length) { resultsEl.hidden = true; resultsEl.innerHTML = ''; return; }
+    resultsEl.hidden = false;
+    resultsEl.innerHTML = matches.map(s => {
+      const wm = STACK_WINDOWS.find(w => w.key === s.window) || STACK_WINDOWS[3];
+      return '<button class="stack-result" data-name="' + escapeHtml(s.name) + '" data-dose="' + escapeHtml(s.dose) + '" data-window="' + s.window + '" data-note="' + escapeHtml(s.note) + '"><div class="stack-result-icon">' + (s.icon || '💊') + '</div><div class="stack-result-body"><div class="stack-result-name">' + escapeHtml(s.name) + '</div><div class="stack-result-meta">' + escapeHtml(s.dose) + ' · ' + wm.icon + ' ' + wm.title.toLowerCase() + ' · ' + escapeHtml(s.note) + '</div></div></button>';
+    }).join('');
+  }
+  if (nameInput) {
+    nameInput.addEventListener('input', () => { renderSearchResults(nameInput.value); pendingNote = ''; });
+    nameInput.addEventListener('focus', () => { if (nameInput.value.trim()) renderSearchResults(nameInput.value); });
+  }
+  document.addEventListener('click', e => { if (!e.target.closest('.stack-name-wrap') && resultsEl) resultsEl.hidden = true; });
+  if (resultsEl) resultsEl.addEventListener('click', e => {
+    const btn = e.target.closest('.stack-result'); if (!btn) return;
+    if (nameInput) nameInput.value = btn.dataset.name;
+    if (doseInput) doseInput.value = btn.dataset.dose;
+    if (winSelect) winSelect.value = btn.dataset.window;
+    pendingNote = btn.dataset.note; resultsEl.hidden = true; if (addBtn) addBtn.focus();
+  });
+  if (addBtn) addBtn.addEventListener('click', () => { addItem(nameInput && nameInput.value, doseInput && doseInput.value, winSelect && winSelect.value, pendingNote); if (nameInput) nameInput.value = ''; if (doseInput) doseInput.value = ''; pendingNote = ''; if (resultsEl) resultsEl.hidden = true; if (nameInput) nameInput.focus(); });
+  [nameInput, doseInput].filter(Boolean).forEach(i => i.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { if (resultsEl && !resultsEl.hidden && i === nameInput) { const first = resultsEl.querySelector('.stack-result'); if (first) { e.preventDefault(); first.click(); return; } } if (addBtn) addBtn.click(); }
+    if (e.key === 'Escape' && resultsEl) resultsEl.hidden = true;
+  }));
+
+  setInterval(() => { const nk = 'stack:taken:' + getActiveDate(); if (nk !== todayKey) todayKey = nk; render(); }, 60000);
+  render();
+})();
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  if (typeof initCloudSync !== 'function') return;
+  initCloudSync({
+    appKey: 'health',
+    syncedKeys: ['stack:items', 'stack:version', 'stack:low', 'po_water_v1', 'po_coach_weights', 'po_coach_photos'],
+    syncedPrefixes: ['stack:taken:'],
+    onApplied: function () { window.dispatchEvent(new Event('storage')); }
+  });
+});
 </script>
 </body>
 </html>
