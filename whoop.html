@@ -1681,7 +1681,7 @@ main {
       const isDeficit = diff >= 0;
       pill.textContent = (isDeficit ? '+' : '−') + Math.abs(diff);
       pill.className = 'cal-deficit-pill ' + (isDeficit ? 'is-deficit' : 'is-surplus');
-      pill.style.display = '';
+      pill.style.display = 'inline-block';
     }
   }
 
