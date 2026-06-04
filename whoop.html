@@ -608,11 +608,11 @@ main {
 .cal-ring-track-outer { fill: none; stroke: rgba(255,255,255,0.06); stroke-width: 10; }
 .cal-ring-track-inner { fill: none; stroke: rgba(255,255,255,0.04); stroke-width: 10; }
 .cal-ring-fill-outer {
-  fill: none; stroke: #E07658; stroke-width: 10; stroke-linecap: round;
+  fill: none; stroke: rgba(155,127,212,0.75); stroke-width: 10; stroke-linecap: round;
   transition: stroke-dashoffset 0.8s cubic-bezier(0.22,1,0.36,1);
 }
 .cal-ring-fill-inner {
-  fill: none; stroke: #6BE3A4; stroke-width: 10; stroke-linecap: round;
+  fill: none; stroke: rgba(224,118,88,0.80); stroke-width: 10; stroke-linecap: round;
   transition: stroke-dashoffset 0.8s cubic-bezier(0.22,1,0.36,1);
 }
 .cal-ring-center {
@@ -625,6 +625,12 @@ main {
 .cal-ring-sep { font-size: 9px; color: var(--text-quaternary); letter-spacing: 0.10em; font-weight: 600; }
 .cal-ring-consumed { font-size: 16px; font-weight: 700; color: #6BE3A4; line-height: 1; font-variant-numeric: tabular-nums; }
 .cal-ring-unit { font-size: 9px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-tertiary); margin-top: 6px; }
+.cal-deficit-pill {
+  display: none; font-size: 13px; font-weight: 700; letter-spacing: -0.01em;
+  padding: 6px 16px; border-radius: 8px; font-variant-numeric: tabular-nums;
+}
+.cal-deficit-pill.is-deficit { color: #6BE3A4; background: rgba(107,227,164,0.10); border: 1px solid rgba(107,227,164,0.25); }
+.cal-deficit-pill.is-surplus { color: #FF6B6B; background: rgba(255,107,107,0.10); border: 1px solid rgba(255,107,107,0.25); }
 .cal-input-row {
   display: flex; gap: 8px; align-items: center;
   margin-top: 14px; justify-content: center;
@@ -1035,7 +1041,7 @@ main {
 
           <div class="fitness-rings-row">
             <!-- Strain ring -->
-            <div class="fitness-ring-wrap" style="background:rgba(107,168,227,0.10);border:1px solid rgba(107,168,227,0.32);border-radius:50%;">
+            <div class="fitness-ring-wrap">
               <svg class="fitness-ring" viewBox="0 0 220 220" aria-hidden="true">
                 <circle class="fitness-ring-track" cx="110" cy="110" r="96"/>
                 <circle class="fitness-ring-fill" cx="110" cy="110" r="96"
@@ -1049,24 +1055,27 @@ main {
               </div>
             </div>
 
-            <!-- Concentric calories rings -->
-            <div class="cal-ring-wrap">
-              <svg class="cal-ring" viewBox="0 0 220 220" aria-hidden="true">
-                <circle class="cal-ring-track-outer" cx="110" cy="110" r="96"/>
-                <circle class="cal-ring-fill-outer"  cx="110" cy="110" r="96"
-                  id="calBurnedFill"
-                  style="stroke-dasharray:603.19;stroke-dashoffset:603.19"/>
-                <circle class="cal-ring-track-inner" cx="110" cy="110" r="68"/>
-                <circle class="cal-ring-fill-inner"  cx="110" cy="110" r="68"
-                  id="calConsumedFill"
-                  style="stroke-dasharray:427.26;stroke-dashoffset:427.26"/>
-              </svg>
-              <div class="cal-ring-center">
-                <div id="calBurnedNum" class="cal-ring-burned">—</div>
-                <div class="cal-ring-sep">BURNED</div>
-                <div id="calConsumedNum" class="cal-ring-consumed">—</div>
-                <div class="cal-ring-sep">EATEN</div>
+            <!-- Concentric calories rings + deficit pill -->
+            <div style="display:flex;flex-direction:column;align-items:center;gap:10px;">
+              <div class="cal-ring-wrap">
+                <svg class="cal-ring" viewBox="0 0 220 220" aria-hidden="true">
+                  <circle class="cal-ring-track-outer" cx="110" cy="110" r="96"/>
+                  <circle class="cal-ring-fill-outer"  cx="110" cy="110" r="96"
+                    id="calBurnedFill"
+                    style="stroke-dasharray:603.19;stroke-dashoffset:603.19"/>
+                  <circle class="cal-ring-track-inner" cx="110" cy="110" r="68"/>
+                  <circle class="cal-ring-fill-inner"  cx="110" cy="110" r="68"
+                    id="calConsumedFill"
+                    style="stroke-dasharray:427.26;stroke-dashoffset:427.26"/>
+                </svg>
+                <div class="cal-ring-center">
+                  <div id="calBurnedNum" class="cal-ring-burned">—</div>
+                  <div class="cal-ring-sep">BURNED</div>
+                  <div id="calConsumedNum" class="cal-ring-consumed">—</div>
+                  <div class="cal-ring-sep">EATEN</div>
+                </div>
               </div>
+              <div id="calDeficitPill" class="cal-deficit-pill"></div>
             </div>
           </div>
 
@@ -1283,6 +1292,8 @@ main {
   'use strict';
 
   const $ = id => document.getElementById(id);
+
+  let calBurnedKcal = null;
 
   // ===== Config — Client ID stored in localStorage, never hardcoded =====
   const CLIENT_ID_KEY = 'whoop_cfg_clientId';
@@ -1625,6 +1636,7 @@ main {
         // Calories burned from kilojoule
         const kcal = cyScore.kilojoule != null ? Math.round(cyScore.kilojoule * 0.239) : null;
         if (kcal != null) {
+          calBurnedKcal = kcal;
           const calBurnEl = $('calBurnedNum');
           if (calBurnEl) calBurnEl.textContent = kcal;
           const C_outer = 603.19;
@@ -1663,6 +1675,14 @@ main {
     if (el) el.textContent = consumed || '—';
     const C_inner = 427.26; // 2π×68
     if (fill) fill.style.strokeDashoffset = C_inner * (1 - Math.min((consumed || 0) / 2500, 1));
+    const pill = $('calDeficitPill');
+    if (pill && calBurnedKcal != null) {
+      const diff = calBurnedKcal - (consumed || 0);
+      const isDeficit = diff >= 0;
+      pill.textContent = (isDeficit ? '+' : '−') + Math.abs(diff);
+      pill.className = 'cal-deficit-pill ' + (isDeficit ? 'is-deficit' : 'is-surplus');
+      pill.style.display = '';
+    }
   }
 
   // Calorie consumed save button
