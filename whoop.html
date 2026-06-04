@@ -608,11 +608,11 @@ main {
 .cal-ring-track-outer { fill: none; stroke: rgba(255,255,255,0.06); stroke-width: 10; }
 .cal-ring-track-inner { fill: none; stroke: rgba(255,255,255,0.04); stroke-width: 10; }
 .cal-ring-fill-outer {
-  fill: none; stroke: rgba(155,127,212,0.70); stroke-width: 10; stroke-linecap: round;
+  fill: none; stroke: #E07658; stroke-width: 10; stroke-linecap: round;
   transition: stroke-dashoffset 0.8s cubic-bezier(0.22,1,0.36,1);
 }
 .cal-ring-fill-inner {
-  fill: none; stroke: rgba(155,127,212,0.40); stroke-width: 10; stroke-linecap: round;
+  fill: none; stroke: #6BE3A4; stroke-width: 10; stroke-linecap: round;
   transition: stroke-dashoffset 0.8s cubic-bezier(0.22,1,0.36,1);
 }
 .cal-ring-center {
@@ -621,7 +621,9 @@ main {
   align-items: center; justify-content: center;
   pointer-events: none; gap: 2px;
 }
-.cal-ring-deficit { font-size: 22px; font-weight: 700; letter-spacing: -0.03em; line-height: 1; font-variant-numeric: tabular-nums; }
+.cal-ring-burned { font-size: 22px; font-weight: 700; letter-spacing: -0.03em; color: #E07658; line-height: 1; font-variant-numeric: tabular-nums; }
+.cal-ring-sep { font-size: 9px; color: var(--text-quaternary); letter-spacing: 0.10em; font-weight: 600; }
+.cal-ring-consumed { font-size: 16px; font-weight: 700; color: #6BE3A4; line-height: 1; font-variant-numeric: tabular-nums; }
 .cal-ring-unit { font-size: 9px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-tertiary); margin-top: 6px; }
 .cal-input-row {
   display: flex; gap: 8px; align-items: center;
@@ -1060,7 +1062,10 @@ main {
                   style="stroke-dasharray:427.26;stroke-dashoffset:427.26"/>
               </svg>
               <div class="cal-ring-center">
-                <div id="calDeficitNum" class="cal-ring-deficit">—</div>
+                <div id="calBurnedNum" class="cal-ring-burned">—</div>
+                <div class="cal-ring-sep">BURNED</div>
+                <div id="calConsumedNum" class="cal-ring-consumed">—</div>
+                <div class="cal-ring-sep">EATEN</div>
               </div>
             </div>
           </div>
@@ -1278,8 +1283,6 @@ main {
   'use strict';
 
   const $ = id => document.getElementById(id);
-
-  let calBurnedKcal = null;
 
   // ===== Config — Client ID stored in localStorage, never hardcoded =====
   const CLIENT_ID_KEY = 'whoop_cfg_clientId';
@@ -1622,7 +1625,8 @@ main {
         // Calories burned from kilojoule
         const kcal = cyScore.kilojoule != null ? Math.round(cyScore.kilojoule * 0.239) : null;
         if (kcal != null) {
-          calBurnedKcal = kcal;
+          const calBurnEl = $('calBurnedNum');
+          if (calBurnEl) calBurnEl.textContent = kcal;
           const C_outer = 603.19;
           const burnFill = $('calBurnedFill');
           if (burnFill) burnFill.style.strokeDashoffset = C_outer * (1 - Math.min(kcal / 3000, 1));
@@ -1654,28 +1658,11 @@ main {
     return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
   }
   function renderCalConsumed(consumed) {
+    const el = $('calConsumedNum');
     const fill = $('calConsumedFill');
+    if (el) el.textContent = consumed || '—';
     const C_inner = 427.26; // 2π×68
     if (fill) fill.style.strokeDashoffset = C_inner * (1 - Math.min((consumed || 0) / 2500, 1));
-    const deficitEl = $('calDeficitNum');
-    if (deficitEl) {
-      if (calBurnedKcal != null) {
-        const diff = calBurnedKcal - (consumed || 0);
-        if (diff > 0) {
-          deficitEl.textContent = '+' + diff;
-          deficitEl.style.color = '#6BE3A4';
-        } else if (diff < 0) {
-          deficitEl.textContent = '−' + Math.abs(diff);
-          deficitEl.style.color = '#FF6B6B';
-        } else {
-          deficitEl.textContent = '0';
-          deficitEl.style.color = '#6BE3A4';
-        }
-      } else {
-        deficitEl.textContent = '—';
-        deficitEl.style.color = '';
-      }
-    }
   }
 
   // Calorie consumed save button
