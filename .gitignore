@@ -3,3 +3,7 @@
 .vscode/
 .idea/
 *.swp
+
+# Local environment variables — never commit these
+.env
+.env.local

@@ -26,6 +26,7 @@ export default async function handler(req, res) {
       refresh_token: refresh,
       client_id:     clientId,
       client_secret: clientSecret,
+      scope:         'offline',
     });
 
     const r = await fetch('https://api.prod.whoop.com/oauth/oauth2/token', {

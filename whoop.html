@@ -1088,7 +1088,7 @@ main {
 
           <!-- Activities -->
           <div id="whoopActivities">
-            <div class="whoop-activities-head">Recent Workouts</div>
+            <div class="whoop-activities-head">Today's Activities</div>
             <div class="whoop-activity-grid" id="whoopActivityGrid">
               <div style="grid-column:1/-1;text-align:center;padding:16px;font-size:12px;color:var(--text-tertiary)">Loading…</div>
             </div>
@@ -1481,7 +1481,7 @@ main {
         whoopFetch('/recovery?limit=1', t).catch(() => null),
         whoopFetch('/activity/sleep?limit=1', t).catch(() => null),
         whoopFetch('/cycle?limit=1', t).catch(() => null),
-        whoopFetch('/activity/workout?limit=5', t).catch(() => null),
+        whoopFetch('/activity/workout?limit=20', t).catch(() => null),
       ]);
 
       // --- Recovery score + ring ---
@@ -1719,10 +1719,21 @@ main {
     if (!grid) return;
     const records = data && data.records;
     if (!records || !records.length) {
-      grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:16px;font-size:12px;color:var(--text-tertiary)">No recent workouts</div>';
+      grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:16px;font-size:12px;color:var(--text-tertiary)">No activities today</div>';
       return;
     }
-    grid.innerHTML = records.slice(0, 6).map(w => {
+    // Active-date: before 6 AM treat as yesterday
+    const now = new Date();
+    const activeDate = now.getHours() < 6
+      ? new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1)
+      : new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const activeDateStr = activeDate.toISOString().slice(0, 10);
+    const todayRecords = records.filter(w => w.start && w.start.slice(0, 10) === activeDateStr);
+    if (!todayRecords.length) {
+      grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:16px;font-size:12px;color:var(--text-tertiary)">No activities today</div>';
+      return;
+    }
+    grid.innerHTML = todayRecords.map(w => {
       const sc = w.score;
       const strain = sc && sc.strain != null ? sc.strain : null;
       const sportId = w.sport_id || 95;
