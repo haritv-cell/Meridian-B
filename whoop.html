@@ -608,11 +608,11 @@ main {
 .cal-ring-track-outer { fill: none; stroke: rgba(255,255,255,0.06); stroke-width: 10; }
 .cal-ring-track-inner { fill: none; stroke: rgba(255,255,255,0.04); stroke-width: 10; }
 .cal-ring-fill-outer {
-  fill: none; stroke: #E07658; stroke-width: 10; stroke-linecap: round;
+  fill: none; stroke: rgba(155,127,212,0.70); stroke-width: 10; stroke-linecap: round;
   transition: stroke-dashoffset 0.8s cubic-bezier(0.22,1,0.36,1);
 }
 .cal-ring-fill-inner {
-  fill: none; stroke: #6BE3A4; stroke-width: 10; stroke-linecap: round;
+  fill: none; stroke: rgba(155,127,212,0.40); stroke-width: 10; stroke-linecap: round;
   transition: stroke-dashoffset 0.8s cubic-bezier(0.22,1,0.36,1);
 }
 .cal-ring-center {
@@ -621,9 +621,7 @@ main {
   align-items: center; justify-content: center;
   pointer-events: none; gap: 2px;
 }
-.cal-ring-burned { font-size: 22px; font-weight: 700; letter-spacing: -0.03em; color: #E07658; line-height: 1; font-variant-numeric: tabular-nums; }
-.cal-ring-sep { font-size: 9px; color: var(--text-quaternary); letter-spacing: 0.10em; font-weight: 600; }
-.cal-ring-consumed { font-size: 16px; font-weight: 700; color: #6BE3A4; line-height: 1; font-variant-numeric: tabular-nums; }
+.cal-ring-deficit { font-size: 22px; font-weight: 700; letter-spacing: -0.03em; line-height: 1; font-variant-numeric: tabular-nums; }
 .cal-ring-unit { font-size: 9px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-tertiary); margin-top: 6px; }
 .cal-input-row {
   display: flex; gap: 8px; align-items: center;
@@ -635,8 +633,11 @@ main {
   border-radius: 10px; color: var(--text-primary);
   font: inherit; font-size: 14px; font-weight: 600; text-align: center;
   font-variant-numeric: tabular-nums; outline: none;
+  -moz-appearance: textfield;
 }
-.cal-consumed-input:focus { border-color: #6BE3A4; }
+.cal-consumed-input::-webkit-outer-spin-button,
+.cal-consumed-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.cal-consumed-input:focus { border-color: #9B7FD4; }
 .cal-save-btn {
   padding: 9px 14px; border-radius: 10px;
   background: rgba(107,227,164,0.14); border: 1px solid rgba(107,227,164,0.30);
@@ -1032,7 +1033,7 @@ main {
 
           <div class="fitness-rings-row">
             <!-- Strain ring -->
-            <div class="fitness-ring-wrap">
+            <div class="fitness-ring-wrap" style="background:rgba(107,168,227,0.10);border:1px solid rgba(107,168,227,0.32);border-radius:50%;">
               <svg class="fitness-ring" viewBox="0 0 220 220" aria-hidden="true">
                 <circle class="fitness-ring-track" cx="110" cy="110" r="96"/>
                 <circle class="fitness-ring-fill" cx="110" cy="110" r="96"
@@ -1059,17 +1060,14 @@ main {
                   style="stroke-dasharray:427.26;stroke-dashoffset:427.26"/>
               </svg>
               <div class="cal-ring-center">
-                <div id="calBurnedNum" class="cal-ring-burned">—</div>
-                <div class="cal-ring-sep">BURNED</div>
-                <div id="calConsumedNum" class="cal-ring-consumed">—</div>
-                <div class="cal-ring-sep">EATEN</div>
+                <div id="calDeficitNum" class="cal-ring-deficit">—</div>
               </div>
             </div>
           </div>
 
           <!-- Calorie consumed input -->
           <div class="cal-input-row">
-            <input type="number" id="calConsumedInput" class="cal-consumed-input" placeholder="kcal eaten" inputmode="numeric" min="0" max="9999">
+            <input type="number" id="calConsumedInput" class="cal-consumed-input" placeholder="Kcal Eaten" inputmode="numeric" min="0" max="9999">
             <button class="cal-save-btn" id="calSaveBtn">Save</button>
           </div>
 
@@ -1280,6 +1278,8 @@ main {
   'use strict';
 
   const $ = id => document.getElementById(id);
+
+  let calBurnedKcal = null;
 
   // ===== Config — Client ID stored in localStorage, never hardcoded =====
   const CLIENT_ID_KEY = 'whoop_cfg_clientId';
@@ -1611,24 +1611,18 @@ main {
         const strainFill = $('fitnessStrainFill');
         if (strainFill) {
           strainFill.style.strokeDashoffset = C_strain * (1 - strainPct);
-          let sc;
-          if (strain >= 18)      sc = '#FF8A8A';
-          else if (strain >= 14) sc = '#F2C063';
-          else if (strain >= 10) sc = '#6BE3A4';
-          else                   sc = '#B8B6B0';
-          strainFill.style.stroke = sc;
-          strainFill.style.filter = 'drop-shadow(0 0 14px ' + sc + '88)';
+          strainFill.style.stroke = '#6BA8E3';
+          strainFill.style.filter = 'drop-shadow(0 0 14px #6BA8E380)';
           const scoreEl = $('fitnessStrainScore');
           const labelEl = $('fitnessStrainLabel');
           if (scoreEl) scoreEl.textContent = strain.toFixed(1);
-          if (labelEl) { labelEl.textContent = strain >= 18 ? 'All out' : strain >= 14 ? 'Strenuous' : strain >= 10 ? 'Moderate' : 'Light'; labelEl.style.color = sc; }
+          if (labelEl) { labelEl.textContent = strain >= 18 ? 'All out' : strain >= 14 ? 'Strenuous' : strain >= 10 ? 'Moderate' : 'Light'; labelEl.style.color = '#6BA8E3'; }
         }
 
         // Calories burned from kilojoule
         const kcal = cyScore.kilojoule != null ? Math.round(cyScore.kilojoule * 0.239) : null;
         if (kcal != null) {
-          const calBurnEl = $('calBurnedNum');
-          if (calBurnEl) calBurnEl.textContent = kcal;
+          calBurnedKcal = kcal;
           const C_outer = 603.19;
           const burnFill = $('calBurnedFill');
           if (burnFill) burnFill.style.strokeDashoffset = C_outer * (1 - Math.min(kcal / 3000, 1));
@@ -1660,13 +1654,28 @@ main {
     return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
   }
   function renderCalConsumed(consumed) {
-    const el = $('calConsumedNum');
     const fill = $('calConsumedFill');
-    const inp = $('calConsumedInput');
-    if (el) el.textContent = consumed || '—';
-    if (inp && !inp.value) inp.value = consumed || '';
     const C_inner = 427.26; // 2π×68
     if (fill) fill.style.strokeDashoffset = C_inner * (1 - Math.min((consumed || 0) / 2500, 1));
+    const deficitEl = $('calDeficitNum');
+    if (deficitEl) {
+      if (calBurnedKcal != null) {
+        const diff = calBurnedKcal - (consumed || 0);
+        if (diff > 0) {
+          deficitEl.textContent = '+' + diff;
+          deficitEl.style.color = '#6BE3A4';
+        } else if (diff < 0) {
+          deficitEl.textContent = '−' + Math.abs(diff);
+          deficitEl.style.color = '#FF6B6B';
+        } else {
+          deficitEl.textContent = '0';
+          deficitEl.style.color = '#6BE3A4';
+        }
+      } else {
+        deficitEl.textContent = '—';
+        deficitEl.style.color = '';
+      }
+    }
   }
 
   // Calorie consumed save button
@@ -1675,6 +1684,7 @@ main {
     calSaveBtn.addEventListener('click', () => {
       const v = parseInt($('calConsumedInput').value, 10) || 0;
       localStorage.setItem('health_cal_consumed_' + calDateKey(), String(v));
+      $('calConsumedInput').value = '';
       renderCalConsumed(v);
     });
   }
