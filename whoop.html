@@ -623,7 +623,7 @@ main {
   pointer-events: none; gap: 2px;
 }
 .cal-ring-burned { font-size: 22px; font-weight: 700; letter-spacing: -0.03em; color: #E07658; line-height: 1; font-variant-numeric: tabular-nums; }
-.cal-ring-sep { font-size: 9px; color: var(--text-quaternary); letter-spacing: 0.10em; font-weight: 600; }
+.cal-ring-sep { font-size: 9px; color: rgba(255,255,255,0.38); letter-spacing: 0.10em; font-weight: 600; }
 .cal-ring-consumed { font-size: 16px; font-weight: 700; color: #6BE3A4; line-height: 1; font-variant-numeric: tabular-nums; }
 .cal-ring-unit { font-size: 9px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-tertiary); margin-top: 6px; }
 .cal-deficit-pill {
@@ -1642,7 +1642,10 @@ main {
           if (calBurnEl) calBurnEl.textContent = kcal;
           const C_outer = 603.19;
           const burnFill = $('calBurnedFill');
-          if (burnFill) burnFill.style.strokeDashoffset = C_outer * (1 - Math.min(kcal / 3000, 1));
+          if (burnFill) {
+            const burnPct = (kcal > 0 && kcal % 2000 === 0) ? 1 : (kcal % 2000) / 2000;
+            burnFill.style.strokeDashoffset = C_outer * (1 - burnPct);
+          }
         }
         // Restore consumed from localStorage
         const calConsumedKey = 'health_cal_consumed_' + calDateKey();
@@ -1675,7 +1678,11 @@ main {
     const fill = $('calConsumedFill');
     if (el) el.textContent = consumed || '—';
     const C_inner = 427.26; // 2π×68
-    if (fill) fill.style.strokeDashoffset = C_inner * (1 - Math.min((consumed || 0) / 2500, 1));
+    if (fill) {
+      const conVal = consumed || 0;
+      const conPct = (conVal > 0 && conVal % 1500 === 0) ? 1 : (conVal % 1500) / 1500;
+      fill.style.strokeDashoffset = C_inner * (1 - conPct);
+    }
     const pill = $('calDeficitPill');
     if (pill && calBurnedKcal != null) {
       const diff = calBurnedKcal - (consumed || 0);
