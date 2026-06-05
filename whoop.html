@@ -612,8 +612,16 @@ main {
   fill: none; stroke: rgba(155,127,212,0.75); stroke-width: 10; stroke-linecap: round;
   transition: stroke-dashoffset 0.8s cubic-bezier(0.22,1,0.36,1);
 }
+.cal-ring-fill-outer-over {
+  fill: none; stroke: rgba(195,167,252,0.95); stroke-width: 10; stroke-linecap: round;
+  transition: stroke-dashoffset 0.8s cubic-bezier(0.22,1,0.36,1);
+}
 .cal-ring-fill-inner {
   fill: none; stroke: rgba(224,118,88,0.80); stroke-width: 10; stroke-linecap: round;
+  transition: stroke-dashoffset 0.8s cubic-bezier(0.22,1,0.36,1);
+}
+.cal-ring-fill-inner-over {
+  fill: none; stroke: rgba(255,148,118,0.95); stroke-width: 10; stroke-linecap: round;
   transition: stroke-dashoffset 0.8s cubic-bezier(0.22,1,0.36,1);
 }
 .cal-ring-center {
@@ -622,9 +630,9 @@ main {
   align-items: center; justify-content: center;
   pointer-events: none; gap: 2px;
 }
-.cal-ring-burned { font-size: 22px; font-weight: 700; letter-spacing: -0.03em; color: #E07658; line-height: 1; font-variant-numeric: tabular-nums; }
+.cal-ring-burned { font-size: 22px; font-weight: 700; letter-spacing: -0.03em; color: #9B7FD4; line-height: 1; font-variant-numeric: tabular-nums; }
 .cal-ring-sep { font-size: 9px; color: rgba(255,255,255,0.38); letter-spacing: 0.10em; font-weight: 600; }
-.cal-ring-consumed { font-size: 16px; font-weight: 700; color: #6BE3A4; line-height: 1; font-variant-numeric: tabular-nums; }
+.cal-ring-consumed { font-size: 16px; font-weight: 700; color: #E07658; line-height: 1; font-variant-numeric: tabular-nums; }
 .cal-ring-unit { font-size: 9px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-tertiary); margin-top: 6px; }
 .cal-deficit-pill {
   display: none; font-size: 13px; font-weight: 700; letter-spacing: -0.01em;
@@ -1064,9 +1072,15 @@ main {
                   <circle class="cal-ring-fill-outer"  cx="110" cy="110" r="96"
                     id="calBurnedFill"
                     style="stroke-dasharray:603.19;stroke-dashoffset:603.19"/>
+                  <circle class="cal-ring-fill-outer-over" cx="110" cy="110" r="96"
+                    id="calBurnedOver"
+                    style="stroke-dasharray:603.19;stroke-dashoffset:603.19"/>
                   <circle class="cal-ring-track-inner" cx="110" cy="110" r="68"/>
                   <circle class="cal-ring-fill-inner"  cx="110" cy="110" r="68"
                     id="calConsumedFill"
+                    style="stroke-dasharray:427.26;stroke-dashoffset:427.26"/>
+                  <circle class="cal-ring-fill-inner-over" cx="110" cy="110" r="68"
+                    id="calConsumedOver"
                     style="stroke-dasharray:427.26;stroke-dashoffset:427.26"/>
                 </svg>
                 <div class="cal-ring-center">
@@ -1642,9 +1656,15 @@ main {
           if (calBurnEl) calBurnEl.textContent = kcal;
           const C_outer = 603.19;
           const burnFill = $('calBurnedFill');
+          const burnOver = $('calBurnedOver');
           if (burnFill) {
-            const burnPct = (kcal > 0 && kcal % 2000 === 0) ? 1 : (kcal % 2000) / 2000;
-            burnFill.style.strokeDashoffset = C_outer * (1 - burnPct);
+            if (kcal >= 2000) {
+              burnFill.style.strokeDashoffset = '0';
+              if (burnOver) burnOver.style.strokeDashoffset = String(C_outer * (1 - (kcal % 2000) / 2000));
+            } else {
+              burnFill.style.strokeDashoffset = String(C_outer * (1 - kcal / 2000));
+              if (burnOver) burnOver.style.strokeDashoffset = String(C_outer);
+            }
           }
         }
         // Restore consumed from localStorage
@@ -1678,10 +1698,16 @@ main {
     const fill = $('calConsumedFill');
     if (el) el.textContent = consumed || '—';
     const C_inner = 427.26; // 2π×68
+    const conOver = $('calConsumedOver');
     if (fill) {
       const conVal = consumed || 0;
-      const conPct = (conVal > 0 && conVal % 1500 === 0) ? 1 : (conVal % 1500) / 1500;
-      fill.style.strokeDashoffset = C_inner * (1 - conPct);
+      if (conVal >= 1500) {
+        fill.style.strokeDashoffset = '0';
+        if (conOver) conOver.style.strokeDashoffset = String(C_inner * (1 - (conVal % 1500) / 1500));
+      } else {
+        fill.style.strokeDashoffset = String(C_inner * (1 - conVal / 1500));
+        if (conOver) conOver.style.strokeDashoffset = String(C_inner);
+      }
     }
     const pill = $('calDeficitPill');
     if (pill && calBurnedKcal != null) {
