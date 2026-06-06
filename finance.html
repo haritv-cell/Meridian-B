@@ -693,6 +693,90 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
 .nw-activity-list.hidden { display: none; }
 
 /* ============================================================
+   FINANCIAL GOAL — battery-style progress bar
+   ============================================================ */
+.nw-goal-section {
+  margin-bottom: 20px;
+  padding: 14px 16px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 12px;
+}
+.nw-goal-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.nw-goal-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  flex: 1;
+}
+.nw-goal-pct {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  min-width: 52px;
+  text-align: right;
+}
+.nw-goal-pct.good { color: #6BE3A4; }
+.nw-goal-pct.warn { color: #F2C063; }
+.nw-goal-pct.bad  { color: #FF8A8A; }
+.nw-goal-edit-btn {
+  font-size: 11px;
+  font-family: inherit;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 6px;
+  padding: 3px 9px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+.nw-goal-edit-btn:hover { background: rgba(255,255,255,0.12); color: var(--text-primary); }
+.nw-goal-track {
+  width: 100%;
+  height: 10px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 99px;
+  overflow: hidden;
+  margin-bottom: 8px;
+  position: relative;
+}
+.nw-goal-fill {
+  height: 100%;
+  border-radius: 99px;
+  width: 0%;
+  background: #FF8A8A;
+  transition: width 0.6s cubic-bezier(0.4,0,0.2,1), background 0.4s;
+}
+.nw-goal-fill.warn { background: #F2C063; }
+.nw-goal-fill.good { background: #6BE3A4; }
+.nw-goal-sub {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+.nw-goal-cur {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.nw-goal-tgt {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  text-align: right;
+}
+
+/* ============================================================
    ORDERS — full-spec form (name, cost, ccy, from-category, date)
    ============================================================ */
 .ord-add-card {
@@ -1608,6 +1692,22 @@ input[type="date"]::-webkit-calendar-picker-indicator {
       </div>
     </div>
 
+    <!-- Financial Goal progress bar — battery-style -->
+    <div id="nwGoalSection" class="nw-goal-section">
+      <div class="nw-goal-header">
+        <span class="nw-goal-label">Financial Goal</span>
+        <span id="nwGoalPct" class="nw-goal-pct">—</span>
+        <button id="nwGoalEditBtn" class="nw-goal-edit-btn">Set goal</button>
+      </div>
+      <div class="nw-goal-track">
+        <div id="nwGoalFill" class="nw-goal-fill"></div>
+      </div>
+      <div class="nw-goal-sub">
+        <span id="nwGoalCurrent" class="nw-goal-cur">—</span>
+        <span id="nwGoalTarget" class="nw-goal-tgt">No goal set — tap "Set goal" to begin</span>
+      </div>
+    </div>
+
     <!-- Overview row: stock-style line chart on the left, donut allocation chart on the right -->
     <div class="nw-overview-grid">
       <div class="nw-chart-wrap" id="nwChartWrap">
@@ -2092,10 +2192,82 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     renderNetWorthChart();
     renderAllocationDonut(sliceTotals, grand);
     renderActivity();
+    renderNwGoal(grand);
     if (typeof renderWishlist === 'function') renderWishlist();
     if (typeof renderOrders   === 'function') renderOrders();
     if (typeof updateOrdPreview === 'function') updateOrdPreview();
   }
+
+  // ============================================================
+  // FINANCIAL GOAL — battery-style progress bar toward a target NW.
+  // Stored as a single CHF number in localStorage ('nw:goal').
+  // ============================================================
+  const NW_GOAL_KEY = 'nw:goal';
+  function renderNwGoal(grandCHF) {
+    const pctEl   = document.getElementById('nwGoalPct');
+    const fillEl  = document.getElementById('nwGoalFill');
+    const curEl   = document.getElementById('nwGoalCurrent');
+    const tgtEl   = document.getElementById('nwGoalTarget');
+    const editBtn = document.getElementById('nwGoalEditBtn');
+    if (!pctEl) return;
+    const goal = Number(storeGet(NW_GOAL_KEY)) || 0;
+    const cur  = Number(grandCHF) || 0;
+    if (!goal) {
+      pctEl.textContent = '—';
+      pctEl.className = 'nw-goal-pct';
+      fillEl.style.width = '0%';
+      fillEl.className = 'nw-goal-fill';
+      curEl.textContent = fmtMoney(cur);
+      tgtEl.textContent = 'No goal set — tap "Set goal" to begin';
+      if (editBtn) editBtn.textContent = 'Set goal';
+      return;
+    }
+    const pct = Math.min(100, (cur / goal) * 100);
+    const cls = pct >= 75 ? 'good' : pct >= 25 ? 'warn' : 'bad';
+    pctEl.textContent = pct.toFixed(1) + '%';
+    pctEl.className = 'nw-goal-pct ' + cls;
+    fillEl.style.width = pct + '%';
+    fillEl.className = 'nw-goal-fill ' + (cls === 'bad' ? '' : cls);
+    curEl.textContent = fmtMoney(cur);
+    tgtEl.textContent = 'Goal: ' + fmtMoney(goal);
+    if (editBtn) editBtn.textContent = 'Edit goal';
+  }
+  (function wireGoalEdit() {
+    const btn = document.getElementById('nwGoalEditBtn');
+    if (!btn) return;
+    btn.addEventListener('click', function() {
+      if (btn.querySelector('input')) return;
+      const symbol = (document.getElementById('netWorthCurrency') || {}).value || 'USD';
+      const rate = exchangeRates[symbol] || 1;
+      const curGoalCHF = Number(storeGet(NW_GOAL_KEY)) || 0;
+      const curDisplay = curGoalCHF * rate;
+      const inp = document.createElement('input');
+      inp.type = 'text';
+      inp.inputMode = 'decimal';
+      inp.placeholder = 'e.g. 500000';
+      inp.value = curGoalCHF ? String(curDisplay.toFixed(curDisplay % 1 === 0 ? 0 : 2)) : '';
+      inp.style.cssText = 'width:110px;background:#1a1a1f;color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:6px;padding:2px 7px;font-size:12px;font-family:inherit;margin-left:4px;outline:none';
+      btn.textContent = '';
+      btn.appendChild(inp);
+      setTimeout(() => { inp.focus(); inp.select(); }, 0);
+      let saved = false;
+      function saveGoal() {
+        if (saved) return; saved = true;
+        const v = parseFloat(inp.value.replace(/,/g, ''));
+        if (!isNaN(v) && v > 0) {
+          storeSet(NW_GOAL_KEY, v / rate);
+        } else if (inp.value.trim() === '' || v === 0) {
+          storeSet(NW_GOAL_KEY, 0);
+        }
+        renderAllNetWorth();
+      }
+      inp.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') { e.preventDefault(); saveGoal(); }
+        else if (e.key === 'Escape') { saved = true; renderAllNetWorth(); }
+      });
+      inp.addEventListener('blur', saveGoal);
+    });
+  })();
 
   // ============================================================
   // ACTIVITY LOG — every add / edit / delete with delta in CHF.
@@ -2127,7 +2299,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     const empty = document.getElementById('nwActivityEmpty');
     const count = document.getElementById('nwActivityCount');
     if (!list) return;
-    const arr = (storeGet(ACTIVITY_KEY) || []).slice().sort((a, b) => b.ts - a.ts);
+    const arr = (storeGet(ACTIVITY_KEY) || []).filter(e => e.kind !== 'delete').slice().sort((a, b) => b.ts - a.ts);
     if (!arr.length) {
       list.classList.add('hidden');
       empty.classList.remove('hidden');
@@ -2136,7 +2308,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     }
     list.classList.remove('hidden');
     empty.classList.add('hidden');
-    count.textContent = arr.length + ' event' + (arr.length === 1 ? '' : 's');
+    count.textContent = arr.length + ' entr' + (arr.length === 1 ? 'y' : 'ies');
     list.innerHTML = arr.slice(0, 30).map(e => {
       const meta = NW_SLICE_META[e.cat] || { name: e.cat, color: '#FFFFFF' };
       const sign = e.delta >= 0 ? '+' : '—';
