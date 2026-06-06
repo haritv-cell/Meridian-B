@@ -877,6 +877,25 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
   width: 140px;
 }
 .nw-milestone-inp-label { width: 130px; }
+.nw-milestone-inp-date { width: 130px; color-scheme: dark; }
+.nw-milestone-pct {
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  min-width: 36px;
+  text-align: right;
+  flex-shrink: 0;
+}
+.nw-milestone-pct.done-pct { color: #6BE3A4; }
+.nw-milestone-pct.warn-pct { color: #F2C063; }
+.nw-milestone-pct.bad-pct  { color: #FF8A8A; }
+.nw-milestone-deadline {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+  white-space: nowrap;
+}
+.nw-milestone-deadline.overdue { color: #FF8A8A; }
 .nw-goal-edit-btn {
   font-size: 11px;
   font-family: inherit;
@@ -1873,6 +1892,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
         <div id="nwMilestoneAddRow" class="nw-milestone-add-row hidden">
           <input id="nwMilestoneAmtInp" type="text" inputmode="decimal" placeholder="Amount (e.g. 100000)" class="nw-milestone-inp" />
           <input id="nwMilestoneLabelInp" type="text" placeholder="Label (optional)" class="nw-milestone-inp nw-milestone-inp-label" />
+          <input id="nwMilestoneDeadlineInp" type="date" class="nw-milestone-inp nw-milestone-inp-date" title="Deadline (optional)" />
           <button id="nwMilestoneSaveBtn" class="nw-goal-edit-btn">Save</button>
           <button id="nwMilestoneCancelBtn" class="nw-goal-edit-btn">Cancel</button>
         </div>
@@ -2545,23 +2565,35 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     }
     if (emptyEl) emptyEl.classList.add('hidden');
     const mons = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    function fmtShortDate(ts) { const d = new Date(ts); return mons[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear(); }
     listEl.innerHTML = arr.map(m => {
       const done = !!m.doneAt;
-      const doneDate = done ? (function(){ const d = new Date(m.doneAt); return mons[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear(); })() : '';
-      const pctOfGoal = (function(){ const g = getGoalData().amount; return g > 0 ? ((m.amountCHF / g) * 100).toFixed(0) + '% of goal' : ''; })();
+      // Progress % toward this specific milestone (capped at 100)
+      const rawPct = m.amountCHF > 0 ? Math.min(100, Math.round((grandCHF / m.amountCHF) * 100)) : 0;
+      const pctCls = done ? 'done-pct' : rawPct >= 66 ? 'done-pct' : rawPct >= 33 ? 'warn-pct' : 'bad-pct';
+      const pctStr = rawPct + '%';
+      // Deadline display
+      let deadlineHtml = '';
+      if (m.deadline && !done) {
+        const daysLeft = Math.ceil((new Date(m.deadline).getTime() - Date.now()) / 86400000);
+        const overdue = daysLeft < 0;
+        const dlText = overdue ? Math.abs(daysLeft) + 'd overdue' : daysLeft === 0 ? 'Due today' : daysLeft + 'd left · ' + m.deadline;
+        deadlineHtml = '<div class="nw-milestone-deadline' + (overdue ? ' overdue' : '') + '">' + dlText + '</div>';
+      }
       return '<div class="nw-milestone-row' + (done ? ' done' : '') + '" data-id="' + m.id + '">'
         + '<div class="nw-milestone-check">'
         +   '<svg class="nw-milestone-check-tick" viewBox="0 0 8 8" fill="none"><polyline points="1,4 3,6 7,2" stroke="#0A0A0B" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>'
         + '</div>'
         + '<div class="nw-milestone-info">'
-        +   '<div class="nw-milestone-amt">' + fmtMoney(m.amountCHF) + (pctOfGoal ? '<span style="font-size:10px;font-weight:400;color:var(--text-tertiary);margin-left:6px">' + pctOfGoal + '</span>' : '') + '</div>'
+        +   '<div class="nw-milestone-amt">' + fmtMoney(m.amountCHF) + '</div>'
         +   (m.label ? '<div class="nw-milestone-label">' + escapeHtml(m.label) + '</div>' : '')
+        +   deadlineHtml
         + '</div>'
-        + (done ? '<span class="nw-milestone-done-date">✓ ' + doneDate + '</span>' : '')
+        + (done ? '<span class="nw-milestone-done-date">✓ ' + fmtShortDate(m.doneAt) + '</span>' : '')
+        + '<span class="nw-milestone-pct ' + pctCls + '">' + pctStr + '</span>'
         + '<button class="nw-milestone-del" data-id="' + m.id + '" title="Remove milestone">×</button>'
         + '</div>';
     }).join('');
-    // Delete handler via delegation
     listEl.onclick = function(e) {
       const btn = e.target.closest('.nw-milestone-del');
       if (!btn) return;
@@ -2572,13 +2604,17 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   }
 
   (function wireMilestones() {
-    const addBtn    = document.getElementById('nwMilestoneAddBtn');
-    const addRow    = document.getElementById('nwMilestoneAddRow');
-    const amtInp    = document.getElementById('nwMilestoneAmtInp');
-    const labelInp  = document.getElementById('nwMilestoneLabelInp');
-    const saveBtn   = document.getElementById('nwMilestoneSaveBtn');
-    const cancelBtn = document.getElementById('nwMilestoneCancelBtn');
+    const addBtn      = document.getElementById('nwMilestoneAddBtn');
+    const addRow      = document.getElementById('nwMilestoneAddRow');
+    const amtInp      = document.getElementById('nwMilestoneAmtInp');
+    const labelInp    = document.getElementById('nwMilestoneLabelInp');
+    const deadlineInp = document.getElementById('nwMilestoneDeadlineInp');
+    const saveBtn     = document.getElementById('nwMilestoneSaveBtn');
+    const cancelBtn   = document.getElementById('nwMilestoneCancelBtn');
     if (!addBtn) return;
+    // Set min date on deadline input to today
+    const todayStr = (function(){ const t = new Date(); return t.getFullYear() + '-' + String(t.getMonth()+1).padStart(2,'0') + '-' + String(t.getDate()).padStart(2,'0'); })();
+    if (deadlineInp) deadlineInp.min = todayStr;
 
     addBtn.addEventListener('click', function() {
       addRow.classList.remove('hidden');
@@ -2586,7 +2622,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     });
     cancelBtn.addEventListener('click', function() {
       addRow.classList.add('hidden');
-      amtInp.value = ''; labelInp.value = '';
+      amtInp.value = ''; labelInp.value = ''; if (deadlineInp) deadlineInp.value = '';
     });
     function saveMilestone() {
       const symbol = (document.getElementById('netWorthCurrency') || {}).value || 'USD';
@@ -2595,17 +2631,19 @@ input[type="date"]::-webkit-calendar-picker-indicator {
       if (isNaN(v) || v <= 0) { amtInp.focus(); return; }
       const amountCHF = v / rate;
       const label = labelInp.value.trim();
+      const deadline = deadlineInp ? (deadlineInp.value || null) : null;
       const arr = getMilestones();
       const grandCHF = (function(){ let g = 0; NW_CATS.forEach(cat => { (storeGet('nw:' + cat.key) || []).forEach(it => { g += Number(it.amount) || 0; }); }); return g; })();
-      arr.push({ id: 'm_' + Date.now(), amountCHF, label, doneAt: grandCHF >= amountCHF ? Date.now() : null });
+      arr.push({ id: 'm_' + Date.now(), amountCHF, label, deadline, doneAt: grandCHF >= amountCHF ? Date.now() : null });
       saveMilestones(arr);
-      amtInp.value = ''; labelInp.value = '';
+      amtInp.value = ''; labelInp.value = ''; if (deadlineInp) deadlineInp.value = '';
       addRow.classList.add('hidden');
       renderMilestones(grandCHF);
     }
     saveBtn.addEventListener('click', saveMilestone);
     amtInp.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); labelInp.focus(); } else if (e.key === 'Escape') { cancelBtn.click(); } });
     labelInp.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); saveMilestone(); } else if (e.key === 'Escape') { cancelBtn.click(); } });
+    if (deadlineInp) deadlineInp.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); saveMilestone(); } else if (e.key === 'Escape') { cancelBtn.click(); } });
   })();
 
   // ============================================================
