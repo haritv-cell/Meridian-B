@@ -491,6 +491,7 @@ main {
           <option value="lunch">Lunch</option>
           <option value="evening">Evening</option>
           <option value="anytime">Anytime</option>
+          <option value="weekly">Weekly</option>
         </select>
         <button id="stackAddBtn" class="stack-add-btn">+ Add</button>
       </div>
@@ -516,6 +517,15 @@ main {
     return `${y}-${m}-${d}`;
   }
 
+  function getActiveWeek() {
+    const d = new Date();
+    d.setUTCHours(0, 0, 0, 0);
+    d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    const week = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+    return `stack:taken:week:${d.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
+  }
+
   const TEMPLATE_VERSION = 5;
 
   const STACK_DEFAULTS = [
@@ -534,6 +544,7 @@ main {
     { key: 'lunch',   icon: '🍽️', title: 'Lunch',   time: '12–2 PM', cutoffHour: 14 },
     { key: 'evening', icon: '🌙', title: 'Evening', time: '9–11 PM', cutoffHour: 23 },
     { key: 'anytime', icon: '⏱️', title: 'Anytime', time: 'No fixed window', cutoffHour: null },
+    { key: 'weekly',  icon: '📅', title: 'Weekly',  time: 'Once a week',      cutoffHour: null },
   ];
 
   // ====== SUPPLEMENT DATABASE — researched defaults ======
@@ -634,9 +645,19 @@ main {
   function setLow(arr) { storeSet('stack:low', arr); }
 
   function toggleTaken(id) {
-    const taken = getTaken();
-    if (taken[id]) delete taken[id]; else taken[id] = Date.now();
-    setTaken(taken); render();
+    const items = getItems();
+    const item = items.find(i => i.id === id);
+    const isWeekly = item && item.window === 'weekly';
+    if (isWeekly) {
+      const wk = storeGet(getActiveWeek()) || {};
+      if (wk[id]) delete wk[id]; else wk[id] = Date.now();
+      storeSet(getActiveWeek(), wk);
+    } else {
+      const taken = getTaken();
+      if (taken[id]) delete taken[id]; else taken[id] = Date.now();
+      setTaken(taken);
+    }
+    render();
   }
   function toggleLow(id) {
     const low = getLow();
@@ -649,6 +670,9 @@ main {
     const taken = getTaken();
     delete taken[id];
     setTaken(taken);
+    const wk = storeGet(getActiveWeek()) || {};
+    delete wk[id];
+    storeSet(getActiveWeek(), wk);
     setLow(getLow().filter(x => x !== id));
     render();
   }
@@ -678,9 +702,10 @@ main {
   function render() {
     const items = getItems();
     const taken = getTaken();
+    const weekTaken = storeGet(getActiveWeek()) || {};
     const low = getLow();
     const totalCount = items.length;
-    const takenCount = items.filter(i => taken[i.id]).length;
+    const takenCount = items.filter(i => i.window === 'weekly' ? !!weekTaken[i.id] : !!taken[i.id]).length;
     document.getElementById('stackProgressText').textContent =
       `${takenCount} / ${totalCount} taken today · resets at 6 AM`;
     const pct = totalCount === 0 ? 0 : (takenCount / totalCount) * 100;
@@ -708,7 +733,7 @@ main {
       const isPastCutoff = win.cutoffHour !== null && nowHour > win.cutoffHour;
 
       winItems.forEach(item => {
-        const isTaken = !!taken[item.id];
+        const isTaken = item.window === 'weekly' ? !!weekTaken[item.id] : !!taken[item.id];
         const isLow = low.includes(item.id);
         const isMissed = !isTaken && isPastCutoff;
 
@@ -752,6 +777,7 @@ main {
   function getStackIssues() {
     const items = getItems();
     const taken = getTaken();
+    const weekTaken = storeGet(getActiveWeek()) || {};
     const low = getLow();
     const now = new Date();
     const nowHour = now.getHours() + (now.getMinutes() / 60);
@@ -762,7 +788,7 @@ main {
     items.forEach(item => {
       const win = STACK_WINDOWS.find(w => w.key === (item.window || 'anytime'));
       const isPastCutoff = win && win.cutoffHour !== null && nowHour > win.cutoffHour;
-      const isTaken = !!taken[item.id];
+      const isTaken = item.window === 'weekly' ? !!weekTaken[item.id] : !!taken[item.id];
       if (isPastCutoff && !isTaken) {
         missed.push({
           type: 'missed',
