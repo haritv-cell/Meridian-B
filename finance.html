@@ -691,6 +691,20 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
 }
 .nw-activity-empty.hidden { display: none; }
 .nw-activity-list.hidden { display: none; }
+.nw-activity-del {
+  margin-left: 6px;
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.2);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+}
+.nw-activity-del:hover { color: #FF8A8A; background: rgba(255,138,138,0.1); }
 
 /* ============================================================
    FINANCIAL GOAL — battery-style progress bar
@@ -723,10 +737,38 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
   font-variant-numeric: tabular-nums;
   min-width: 52px;
   text-align: right;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: flex-end;
 }
 .nw-goal-pct.good { color: #6BE3A4; }
 .nw-goal-pct.warn { color: #F2C063; }
 .nw-goal-pct.bad  { color: #FF8A8A; }
+.nw-goal-pace-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: rgba(255,255,255,0.15);
+  flex-shrink: 0;
+  display: none;
+  transition: background 0.3s;
+}
+.nw-goal-pace-dot.visible { display: block; }
+.nw-goal-pace-dot.good { background: #6BE3A4; box-shadow: 0 0 6px rgba(107,227,164,0.7); }
+.nw-goal-pace-dot.warn { background: #F2C063; box-shadow: 0 0 6px rgba(242,192,99,0.6); }
+.nw-goal-pace-dot.bad  { background: #FF8A8A; box-shadow: 0 0 6px rgba(255,138,138,0.6); }
+.nw-goal-deadline-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255,255,255,0.05);
+  font-size: 11px;
+}
+.nw-goal-deadline-row.hidden { display: none; }
+.nw-goal-deadline-label { color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; font-size: 10px; }
+.nw-goal-deadline-val { color: var(--text-primary); font-weight: 500; }
+.nw-goal-deadline-days { color: var(--text-tertiary); margin-left: auto; }
 .nw-goal-edit-btn {
   font-size: 11px;
   font-family: inherit;
@@ -1696,7 +1738,8 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     <div id="nwGoalSection" class="nw-goal-section">
       <div class="nw-goal-header">
         <span class="nw-goal-label">Financial Goal</span>
-        <span id="nwGoalPct" class="nw-goal-pct">—</span>
+        <span id="nwGoalPct" class="nw-goal-pct"><span id="nwGoalPaceDot" class="nw-goal-pace-dot"></span><span id="nwGoalPctNum">—</span></span>
+        <button id="nwGoalDeadlineBtn" class="nw-goal-edit-btn">Set deadline</button>
         <button id="nwGoalEditBtn" class="nw-goal-edit-btn">Set goal</button>
       </div>
       <div class="nw-goal-track">
@@ -1705,6 +1748,11 @@ input[type="date"]::-webkit-calendar-picker-indicator {
       <div class="nw-goal-sub">
         <span id="nwGoalCurrent" class="nw-goal-cur">—</span>
         <span id="nwGoalTarget" class="nw-goal-tgt">No goal set — tap "Set goal" to begin</span>
+      </div>
+      <div id="nwGoalDeadlineRow" class="nw-goal-deadline-row hidden">
+        <span class="nw-goal-deadline-label">Deadline:</span>
+        <span id="nwGoalDeadlineVal" class="nw-goal-deadline-val">—</span>
+        <span id="nwGoalDeadlineDays" class="nw-goal-deadline-days">—</span>
       </div>
     </div>
 
@@ -2203,61 +2251,101 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   // Stored as a single CHF number in localStorage ('nw:goal').
   // ============================================================
   const NW_GOAL_KEY = 'nw:goal';
+  function getGoalData() {
+    const raw = storeGet(NW_GOAL_KEY);
+    if (!raw) return { amount: 0, deadline: null, setAt: null };
+    if (typeof raw === 'number') return { amount: raw, deadline: null, setAt: null };
+    return { amount: Number(raw.amount) || 0, deadline: raw.deadline || null, setAt: raw.setAt || null };
+  }
+  function saveGoalData(data) { storeSet(NW_GOAL_KEY, data); }
   function renderNwGoal(grandCHF) {
-    const pctEl   = document.getElementById('nwGoalPct');
-    const fillEl  = document.getElementById('nwGoalFill');
-    const curEl   = document.getElementById('nwGoalCurrent');
-    const tgtEl   = document.getElementById('nwGoalTarget');
-    const editBtn = document.getElementById('nwGoalEditBtn');
+    const pctNumEl  = document.getElementById('nwGoalPctNum');
+    const paceDot   = document.getElementById('nwGoalPaceDot');
+    const pctEl     = document.getElementById('nwGoalPct');
+    const fillEl    = document.getElementById('nwGoalFill');
+    const curEl     = document.getElementById('nwGoalCurrent');
+    const tgtEl     = document.getElementById('nwGoalTarget');
+    const editBtn   = document.getElementById('nwGoalEditBtn');
+    const dlBtn     = document.getElementById('nwGoalDeadlineBtn');
+    const dlRow     = document.getElementById('nwGoalDeadlineRow');
+    const dlVal     = document.getElementById('nwGoalDeadlineVal');
+    const dlDays    = document.getElementById('nwGoalDeadlineDays');
     if (!pctEl) return;
-    const goal = Number(storeGet(NW_GOAL_KEY)) || 0;
-    const cur  = Number(grandCHF) || 0;
+    const { amount: goal, deadline, setAt } = getGoalData();
+    const cur = Number(grandCHF) || 0;
     if (!goal) {
-      pctEl.textContent = '—';
+      pctNumEl.textContent = '—';
       pctEl.className = 'nw-goal-pct';
+      paceDot.className = 'nw-goal-pace-dot';
       fillEl.style.width = '0%';
       fillEl.className = 'nw-goal-fill';
       curEl.textContent = fmtMoney(cur);
       tgtEl.textContent = 'No goal set — tap "Set goal" to begin';
       if (editBtn) editBtn.textContent = 'Set goal';
+      if (dlRow) dlRow.classList.add('hidden');
       return;
     }
     const pct = Math.min(100, (cur / goal) * 100);
-    const cls = pct >= 75 ? 'good' : pct >= 25 ? 'warn' : 'bad';
-    pctEl.textContent = pct.toFixed(1) + '%';
+    const cls = pct >= 66 ? 'good' : pct >= 33 ? 'warn' : 'bad';
+    pctNumEl.textContent = pct.toFixed(1) + '%';
     pctEl.className = 'nw-goal-pct ' + cls;
     fillEl.style.width = pct + '%';
     fillEl.className = 'nw-goal-fill ' + (cls === 'bad' ? '' : cls);
     curEl.textContent = fmtMoney(cur);
     tgtEl.textContent = 'Goal: ' + fmtMoney(goal);
     if (editBtn) editBtn.textContent = 'Edit goal';
+    // Pace dot — only meaningful when deadline is set
+    if (deadline && setAt) {
+      const now = Date.now();
+      const total = new Date(deadline).getTime() - setAt;
+      const elapsed = now - setAt;
+      const timePct = total > 0 ? Math.min(1, elapsed / total) : 0;
+      const amtPct = cur / goal;
+      // Green: ahead of or on pace; Yellow: within 15pp behind; Red: more than 15pp behind
+      const gap = amtPct - timePct;
+      const paceCls = gap >= 0 ? 'good' : gap >= -0.15 ? 'warn' : 'bad';
+      paceDot.className = 'nw-goal-pace-dot visible ' + paceCls;
+    } else {
+      paceDot.className = 'nw-goal-pace-dot';
+    }
+    // Deadline row
+    if (dlRow && deadline) {
+      dlRow.classList.remove('hidden');
+      const dlDate = new Date(deadline);
+      const mons = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      dlVal.textContent = mons[dlDate.getMonth()] + ' ' + dlDate.getDate() + ', ' + dlDate.getFullYear();
+      const daysLeft = Math.ceil((dlDate.getTime() - Date.now()) / 86400000);
+      dlDays.textContent = daysLeft > 0 ? daysLeft + 'd left' : daysLeft === 0 ? 'Today' : Math.abs(daysLeft) + 'd overdue';
+      if (dlBtn) dlBtn.textContent = 'Edit deadline';
+    } else {
+      if (dlRow) dlRow.classList.add('hidden');
+      if (dlBtn) dlBtn.textContent = 'Set deadline';
+    }
   }
   (function wireGoalEdit() {
     const btn = document.getElementById('nwGoalEditBtn');
-    if (!btn) return;
-    btn.addEventListener('click', function() {
+    if (btn) btn.addEventListener('click', function() {
       if (btn.querySelector('input')) return;
       const symbol = (document.getElementById('netWorthCurrency') || {}).value || 'USD';
       const rate = exchangeRates[symbol] || 1;
-      const curGoalCHF = Number(storeGet(NW_GOAL_KEY)) || 0;
-      const curDisplay = curGoalCHF * rate;
+      const d = getGoalData();
+      const curDisplay = d.amount * rate;
       const inp = document.createElement('input');
-      inp.type = 'text';
-      inp.inputMode = 'decimal';
+      inp.type = 'text'; inp.inputMode = 'decimal';
       inp.placeholder = 'e.g. 500000';
-      inp.value = curGoalCHF ? String(curDisplay.toFixed(curDisplay % 1 === 0 ? 0 : 2)) : '';
+      inp.value = d.amount ? String(curDisplay.toFixed(curDisplay % 1 === 0 ? 0 : 2)) : '';
       inp.style.cssText = 'width:110px;background:#1a1a1f;color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:6px;padding:2px 7px;font-size:12px;font-family:inherit;margin-left:4px;outline:none';
-      btn.textContent = '';
-      btn.appendChild(inp);
+      btn.textContent = ''; btn.appendChild(inp);
       setTimeout(() => { inp.focus(); inp.select(); }, 0);
       let saved = false;
       function saveGoal() {
         if (saved) return; saved = true;
         const v = parseFloat(inp.value.replace(/,/g, ''));
+        const current = getGoalData();
         if (!isNaN(v) && v > 0) {
-          storeSet(NW_GOAL_KEY, v / rate);
+          saveGoalData({ amount: v / rate, deadline: current.deadline, setAt: current.setAt || Date.now() });
         } else if (inp.value.trim() === '' || v === 0) {
-          storeSet(NW_GOAL_KEY, 0);
+          saveGoalData({ amount: 0, deadline: current.deadline, setAt: null });
         }
         renderAllNetWorth();
       }
@@ -2266,6 +2354,30 @@ input[type="date"]::-webkit-calendar-picker-indicator {
         else if (e.key === 'Escape') { saved = true; renderAllNetWorth(); }
       });
       inp.addEventListener('blur', saveGoal);
+    });
+    const dlBtn = document.getElementById('nwGoalDeadlineBtn');
+    if (dlBtn) dlBtn.addEventListener('click', function() {
+      if (dlBtn.querySelector('input')) return;
+      const d = getGoalData();
+      const inp = document.createElement('input');
+      inp.type = 'date';
+      inp.value = d.deadline || '';
+      inp.style.cssText = 'background:#1a1a1f;color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:6px;padding:2px 7px;font-size:12px;font-family:inherit;margin-left:4px;outline:none;color-scheme:dark';
+      dlBtn.textContent = ''; dlBtn.appendChild(inp);
+      setTimeout(() => { inp.focus(); }, 0);
+      let saved = false;
+      function saveDeadline() {
+        if (saved) return; saved = true;
+        const current = getGoalData();
+        saveGoalData({ amount: current.amount, deadline: inp.value || null, setAt: current.setAt || (current.amount ? Date.now() : null) });
+        renderAllNetWorth();
+      }
+      inp.addEventListener('change', function() { saveDeadline(); });
+      inp.addEventListener('blur', saveDeadline);
+      inp.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') { e.preventDefault(); saveDeadline(); }
+        else if (e.key === 'Escape') { saved = true; renderAllNetWorth(); }
+      });
     });
   })();
 
@@ -2315,7 +2427,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
       const cls = e.delta >= 0 ? 'up' : 'down';
       const amt = fmtMoney(Math.abs(e.delta));
       const kind = e.kind === 'edit' ? 'EDIT' : (e.kind === 'delete' ? 'DELETE' : 'ADD');
-      return '<div class="nw-activity-row" style="color:' + meta.color + '">'
+      return '<div class="nw-activity-row" data-ts="' + e.ts + '" style="color:' + meta.color + '">'
         + '<span class="nw-activity-bar" style="background:' + meta.color + '"></span>'
         + '<div class="nw-activity-info">'
         +   '<div class="nw-activity-name">' + escapeHtml(e.name || '(unnamed)') + '</div>'
@@ -2323,8 +2435,18 @@ input[type="date"]::-webkit-calendar-picker-indicator {
         + '</div>'
         + '<span class="nw-activity-amt ' + cls + '">' + sign + amt + '</span>'
         + '<span class="nw-activity-date">' + fmtActivityDate(e.ts) + '</span>'
+        + '<button class="nw-activity-del" data-ts="' + e.ts + '" title="Remove entry">×</button>'
         + '</div>';
     }).join('');
+    list.onclick = function(e) {
+      const btn = e.target.closest('.nw-activity-del');
+      if (!btn) return;
+      const ts = Number(btn.dataset.ts);
+      const all = storeGet(ACTIVITY_KEY) || [];
+      const idx = all.findIndex(x => x.ts === ts);
+      if (idx !== -1) { all.splice(idx, 1); storeSet(ACTIVITY_KEY, all); }
+      renderActivity();
+    };
   }
 
   // ============================================================
