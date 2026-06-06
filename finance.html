@@ -1885,6 +1885,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
         <div class="nw-chart-head">
           <span class="nw-chart-label">All-time</span>
           <span class="nw-chart-delta" id="nwChartDelta">—</span>
+          <button id="nwHistoryClearBtn" style="font-size:10px;font-family:inherit;font-weight:500;color:rgba(255,255,255,0.25);background:none;border:none;cursor:pointer;padding:2px 4px;border-radius:4px;transition:color 0.15s;" title="Clear chart history">Clear history</button>
         </div>
         <svg class="nw-chart-svg" id="nwChartSvg" viewBox="0 0 600 200" preserveAspectRatio="none" aria-hidden="true">
           <defs>
@@ -2783,6 +2784,17 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   // Net-worth history chart
   const NW_HISTORY_KEY = 'nw:history';
   const NW_HISTORY_MAX = 500;
+  (function wireHistoryClear() {
+    const btn = document.getElementById('nwHistoryClearBtn');
+    if (!btn) return;
+    btn.addEventListener('click', function() {
+      if (!confirm('Clear all chart history? This only removes the recorded snapshots — your actual net worth accounts are not affected.')) return;
+      storeSet(NW_HISTORY_KEY, []);
+      renderAllNetWorth();
+    });
+    btn.addEventListener('mouseenter', function() { btn.style.color = '#FF8A8A'; });
+    btn.addEventListener('mouseleave', function() { btn.style.color = 'rgba(255,255,255,0.25)'; });
+  })();
   function logNetWorthSnapshot(grandCHF) {
     const v = Number(grandCHF) || 0;
     const hist = storeGet(NW_HISTORY_KEY) || [];
