@@ -2484,9 +2484,11 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     if (dlBtn) dlBtn.addEventListener('click', function() {
       if (dlBtn.querySelector('input')) return;
       const d = getGoalData();
+      const today = new Date(); const todayStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
       const inp = document.createElement('input');
       inp.type = 'date';
-      inp.value = d.deadline || '';
+      inp.min = todayStr;
+      inp.value = d.deadline && d.deadline >= todayStr ? d.deadline : '';
       inp.style.cssText = 'background:#1a1a1f;color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:6px;padding:2px 7px;font-size:12px;font-family:inherit;margin-left:4px;outline:none;color-scheme:dark';
       dlBtn.textContent = ''; dlBtn.appendChild(inp);
       setTimeout(() => { inp.focus(); }, 0);
