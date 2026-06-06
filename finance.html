@@ -769,6 +769,114 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
 .nw-goal-deadline-label { color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; font-size: 10px; }
 .nw-goal-deadline-val { color: var(--text-primary); font-weight: 500; }
 .nw-goal-deadline-days { color: var(--text-tertiary); margin-left: auto; }
+.nw-milestone-section {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+.nw-milestone-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.nw-milestone-title {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+  color: var(--text-tertiary);
+}
+.nw-milestone-list { display: flex; flex-direction: column; gap: 6px; }
+.nw-milestone-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  transition: opacity 0.3s;
+}
+.nw-milestone-row.done {
+  opacity: 0.45;
+}
+.nw-milestone-check {
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255,255,255,0.2);
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.2s, border-color 0.2s;
+}
+.nw-milestone-row.done .nw-milestone-check {
+  background: #6BE3A4;
+  border-color: #6BE3A4;
+}
+.nw-milestone-check-tick {
+  display: none;
+  width: 8px; height: 8px;
+}
+.nw-milestone-row.done .nw-milestone-check-tick { display: block; }
+.nw-milestone-info { flex: 1; min-width: 0; }
+.nw-milestone-amt {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.nw-milestone-label {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nw-milestone-row.done .nw-milestone-amt,
+.nw-milestone-row.done .nw-milestone-label { color: var(--text-tertiary); }
+.nw-milestone-done-date {
+  font-size: 10px;
+  color: #6BE3A4;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.nw-milestone-del {
+  background: none; border: none;
+  color: rgba(255,255,255,0.18);
+  font-size: 14px; line-height: 1;
+  cursor: pointer; padding: 2px 4px;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+  flex-shrink: 0;
+}
+.nw-milestone-del:hover { color: #FF8A8A; background: rgba(255,138,138,0.1); }
+.nw-milestone-empty {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  text-align: center;
+  padding: 8px 0;
+}
+.nw-milestone-empty.hidden { display: none; }
+.nw-milestone-add-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.nw-milestone-add-row.hidden { display: none; }
+.nw-milestone-inp {
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 12px;
+  font-family: inherit;
+  padding: 4px 9px;
+  outline: none;
+  width: 140px;
+}
+.nw-milestone-inp-label { width: 130px; }
 .nw-goal-edit-btn {
   font-size: 11px;
   font-family: inherit;
@@ -1754,6 +1862,21 @@ input[type="date"]::-webkit-calendar-picker-indicator {
         <span id="nwGoalDeadlineVal" class="nw-goal-deadline-val">—</span>
         <span id="nwGoalDeadlineDays" class="nw-goal-deadline-days">—</span>
       </div>
+      <!-- Milestones -->
+      <div class="nw-milestone-section">
+        <div class="nw-milestone-header">
+          <span class="nw-milestone-title">Milestones</span>
+          <button id="nwMilestoneAddBtn" class="nw-goal-edit-btn">+ Add</button>
+        </div>
+        <div id="nwMilestoneList" class="nw-milestone-list"></div>
+        <div id="nwMilestoneEmpty" class="nw-milestone-empty hidden">No milestones yet — add checkpoints on the way to your goal.</div>
+        <div id="nwMilestoneAddRow" class="nw-milestone-add-row hidden">
+          <input id="nwMilestoneAmtInp" type="text" inputmode="decimal" placeholder="Amount (e.g. 100000)" class="nw-milestone-inp" />
+          <input id="nwMilestoneLabelInp" type="text" placeholder="Label (optional)" class="nw-milestone-inp nw-milestone-inp-label" />
+          <button id="nwMilestoneSaveBtn" class="nw-goal-edit-btn">Save</button>
+          <button id="nwMilestoneCancelBtn" class="nw-goal-edit-btn">Cancel</button>
+        </div>
+      </div>
     </div>
 
     <!-- Overview row: stock-style line chart on the left, donut allocation chart on the right -->
@@ -2241,6 +2364,8 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     renderAllocationDonut(sliceTotals, grand);
     renderActivity();
     renderNwGoal(grand);
+    checkMilestones(grand);
+    renderMilestones(grand);
     if (typeof renderWishlist === 'function') renderWishlist();
     if (typeof renderOrders   === 'function') renderOrders();
     if (typeof updateOrdPreview === 'function') updateOrdPreview();
@@ -2379,6 +2504,105 @@ input[type="date"]::-webkit-calendar-picker-indicator {
         else if (e.key === 'Escape') { saved = true; renderAllNetWorth(); }
       });
     });
+  })();
+
+  // ============================================================
+  // MILESTONES — checkpoints on the way to the final goal.
+  // Stored in localStorage as 'nw:milestones': array of
+  // { id, amountCHF, label, doneAt } sorted by amount asc.
+  // Auto-checked when net worth passes the amount; never deleted
+  // automatically — the user removes them manually.
+  // ============================================================
+  const NW_MILESTONES_KEY = 'nw:milestones';
+  function getMilestones() { return storeGet(NW_MILESTONES_KEY) || []; }
+  function saveMilestones(arr) { storeSet(NW_MILESTONES_KEY, arr); }
+
+  function checkMilestones(grandCHF) {
+    const arr = getMilestones();
+    let changed = false;
+    const mons = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    arr.forEach(m => {
+      if (!m.doneAt && grandCHF >= m.amountCHF) {
+        m.doneAt = Date.now();
+        changed = true;
+      }
+    });
+    if (changed) saveMilestones(arr);
+  }
+
+  function renderMilestones(grandCHF) {
+    const listEl  = document.getElementById('nwMilestoneList');
+    const emptyEl = document.getElementById('nwMilestoneEmpty');
+    if (!listEl) return;
+    const arr = getMilestones().slice().sort((a, b) => a.amountCHF - b.amountCHF);
+    if (!arr.length) {
+      listEl.innerHTML = '';
+      if (emptyEl) emptyEl.classList.remove('hidden');
+      return;
+    }
+    if (emptyEl) emptyEl.classList.add('hidden');
+    const mons = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    listEl.innerHTML = arr.map(m => {
+      const done = !!m.doneAt;
+      const doneDate = done ? (function(){ const d = new Date(m.doneAt); return mons[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear(); })() : '';
+      const pctOfGoal = (function(){ const g = getGoalData().amount; return g > 0 ? ((m.amountCHF / g) * 100).toFixed(0) + '% of goal' : ''; })();
+      return '<div class="nw-milestone-row' + (done ? ' done' : '') + '" data-id="' + m.id + '">'
+        + '<div class="nw-milestone-check">'
+        +   '<svg class="nw-milestone-check-tick" viewBox="0 0 8 8" fill="none"><polyline points="1,4 3,6 7,2" stroke="#0A0A0B" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+        + '</div>'
+        + '<div class="nw-milestone-info">'
+        +   '<div class="nw-milestone-amt">' + fmtMoney(m.amountCHF) + (pctOfGoal ? '<span style="font-size:10px;font-weight:400;color:var(--text-tertiary);margin-left:6px">' + pctOfGoal + '</span>' : '') + '</div>'
+        +   (m.label ? '<div class="nw-milestone-label">' + escapeHtml(m.label) + '</div>' : '')
+        + '</div>'
+        + (done ? '<span class="nw-milestone-done-date">✓ ' + doneDate + '</span>' : '')
+        + '<button class="nw-milestone-del" data-id="' + m.id + '" title="Remove milestone">×</button>'
+        + '</div>';
+    }).join('');
+    // Delete handler via delegation
+    listEl.onclick = function(e) {
+      const btn = e.target.closest('.nw-milestone-del');
+      if (!btn) return;
+      const id = btn.dataset.id;
+      saveMilestones(getMilestones().filter(m => m.id !== id));
+      renderMilestones(grandCHF);
+    };
+  }
+
+  (function wireMilestones() {
+    const addBtn    = document.getElementById('nwMilestoneAddBtn');
+    const addRow    = document.getElementById('nwMilestoneAddRow');
+    const amtInp    = document.getElementById('nwMilestoneAmtInp');
+    const labelInp  = document.getElementById('nwMilestoneLabelInp');
+    const saveBtn   = document.getElementById('nwMilestoneSaveBtn');
+    const cancelBtn = document.getElementById('nwMilestoneCancelBtn');
+    if (!addBtn) return;
+
+    addBtn.addEventListener('click', function() {
+      addRow.classList.remove('hidden');
+      amtInp.focus();
+    });
+    cancelBtn.addEventListener('click', function() {
+      addRow.classList.add('hidden');
+      amtInp.value = ''; labelInp.value = '';
+    });
+    function saveMilestone() {
+      const symbol = (document.getElementById('netWorthCurrency') || {}).value || 'USD';
+      const rate = exchangeRates[symbol] || 1;
+      const v = parseFloat(amtInp.value.replace(/,/g, ''));
+      if (isNaN(v) || v <= 0) { amtInp.focus(); return; }
+      const amountCHF = v / rate;
+      const label = labelInp.value.trim();
+      const arr = getMilestones();
+      const grandCHF = (function(){ let g = 0; NW_CATS.forEach(cat => { (storeGet('nw:' + cat.key) || []).forEach(it => { g += Number(it.amount) || 0; }); }); return g; })();
+      arr.push({ id: 'm_' + Date.now(), amountCHF, label, doneAt: grandCHF >= amountCHF ? Date.now() : null });
+      saveMilestones(arr);
+      amtInp.value = ''; labelInp.value = '';
+      addRow.classList.add('hidden');
+      renderMilestones(grandCHF);
+    }
+    saveBtn.addEventListener('click', saveMilestone);
+    amtInp.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); labelInp.focus(); } else if (e.key === 'Escape') { cancelBtn.click(); } });
+    labelInp.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); saveMilestone(); } else if (e.key === 'Escape') { cancelBtn.click(); } });
   })();
 
   // ============================================================
