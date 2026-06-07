@@ -663,7 +663,8 @@ body::after {
 
   function getGoals(key) {
     const g = storeGet(key);
-    return Array.isArray(g) ? g : [];
+    if (!Array.isArray(g)) return [];
+    return g.filter(item => item && typeof item === 'object' && typeof item.text === 'string');
   }
   function setGoals(key, list) { storeSet(key, list); }
 
