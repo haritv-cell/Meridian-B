@@ -30,6 +30,23 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
 }
+.topbar-home {
+  flex: 0 0 auto;
+  width: 38px; height: 38px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 50%;
+  font-size: 17px; line-height: 1;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s, border-color 0.15s, transform 0.15s;
+}
+.topbar-home:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.10);
+  transform: scale(1.05);
+}
 .topbar-pill {
   flex: 1 1 0; min-width: 0;
   display: inline-flex; align-items: center; gap: 8px;
@@ -71,13 +88,13 @@
   white-space: nowrap;
 }
 .topbar-water-wrap {
-  flex: 1 1 0; min-width: 0;
+  flex: 0 0 auto; min-width: 0;
   display: flex;
 }
 .topbar-water-pill {
-  flex: 1; min-width: 0;
+  flex: 0 0 auto; min-width: 0;
   display: inline-flex; align-items: center; gap: 8px;
-  padding: 8px 12px;
+  padding: 8px 10px;
   background: rgba(125, 211, 252, 0.07);
   border: 1px solid rgba(125, 211, 252, 0.14);
   border-right: none;
@@ -115,6 +132,7 @@
   .topbar-pill-label { font-size: 9px; letter-spacing: 0.10em; }
   .topbar-pill-count { font-size: 11px; }
   .topbar-water-add { width: 32px; font-size: 16px; }
+  .topbar-home { width: 32px; height: 32px; font-size: 15px; }
 }
 @media (max-width: 380px) {
   .topbar-pill-label { display: none; }
@@ -169,16 +187,15 @@ body.topbar-modal-open {
   // -------- HTML --------
   const html = `
 <header class="topbar" id="topbar" role="navigation" aria-label="Quick stats">
+  <a href="index.html" class="topbar-home" id="topbarHome" aria-label="Home" title="Home">🏠</a>
   <a href="main.html" class="topbar-pill" id="topbarGoals">
     <span class="topbar-pill-dot"></span>
     <span class="topbar-pill-label">GOALS</span>
     <span class="topbar-pill-count" id="topbarGoalsCount">—/—</span>
   </a>
   <div class="topbar-water-wrap">
-    <a href="health.html#water" class="topbar-water-pill" id="topbarWater">
+    <a href="po-water.html" class="topbar-water-pill" id="topbarWater" aria-label="Water" title="Water">
       <span class="topbar-pill-dot"></span>
-      <span class="topbar-pill-label">WATER</span>
-      <span class="topbar-pill-count" id="topbarWaterCount">—/—</span>
     </a>
     <button class="topbar-water-add" id="topbarWaterAdd" aria-label="Log one drink" type="button">+</button>
   </div>
@@ -295,8 +312,6 @@ body.topbar-modal-open {
 
     document.getElementById('topbarGoalsCount').textContent =
       g.total ? g.done + '/' + g.total : '0/0';
-    document.getElementById('topbarWaterCount').textContent =
-      w.total ? w.done + '/' + w.total : '0/0';
 
     setPillStatus(goalsEl, classifyStatus(g.done, g.total));
     setPillStatus(waterEl, classifyStatus(w.done, w.total));
