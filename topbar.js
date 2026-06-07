@@ -88,13 +88,13 @@
   white-space: nowrap;
 }
 .topbar-water-wrap {
-  flex: 0 0 auto; min-width: 0;
+  flex: 1 1 0; min-width: 0;
   display: flex;
 }
 .topbar-water-pill {
-  flex: 0 0 auto; min-width: 0;
+  flex: 1; min-width: 0;
   display: inline-flex; align-items: center; gap: 8px;
-  padding: 8px 10px;
+  padding: 8px 12px;
   background: rgba(125, 211, 252, 0.07);
   border: 1px solid rgba(125, 211, 252, 0.14);
   border-right: none;
@@ -194,8 +194,10 @@ body.topbar-modal-open {
     <span class="topbar-pill-count" id="topbarGoalsCount">—/—</span>
   </a>
   <div class="topbar-water-wrap">
-    <a href="po-water.html" class="topbar-water-pill" id="topbarWater" aria-label="Water" title="Water">
+    <a href="po-water.html" class="topbar-water-pill" id="topbarWater">
       <span class="topbar-pill-dot"></span>
+      <span class="topbar-pill-label">WATER</span>
+      <span class="topbar-pill-count" id="topbarWaterCount">—/—</span>
     </a>
     <button class="topbar-water-add" id="topbarWaterAdd" aria-label="Log one drink" type="button">+</button>
   </div>
@@ -312,6 +314,8 @@ body.topbar-modal-open {
 
     document.getElementById('topbarGoalsCount').textContent =
       g.total ? g.done + '/' + g.total : '0/0';
+    document.getElementById('topbarWaterCount').textContent =
+      w.total ? w.done + '/' + w.total : '0/0';
 
     setPillStatus(goalsEl, classifyStatus(g.done, g.total));
     setPillStatus(waterEl, classifyStatus(w.done, w.total));

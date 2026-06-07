@@ -1160,5 +1160,19 @@ body::after {
   });
 })();
 </script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  if (typeof initCloudSync !== 'function') return;
+  initCloudSync({
+    appKey: 'goals',
+    syncedPrefixes: ['goals:'],
+    syncedKeys: ['goal_streak_v1'],
+    onApplied: function () {
+      window.dispatchEvent(new CustomEvent('goals-changed'));
+      window.dispatchEvent(new Event('storage'));
+    }
+  });
+});
+</script>
 </body>
 </html>

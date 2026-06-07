@@ -46,15 +46,33 @@
     }
     const origSet = localStorage.setItem.bind(localStorage);
     const origRemove = localStorage.removeItem.bind(localStorage);
+
+    // -------- Local "touched" timestamp --------
+    // Guards against the classic race: an initial fetch returns stale remote
+    // data and stomps on a local edit made moments earlier (before the local
+    // push completed). We persist the time of the last genuine local edit and
+    // only ever let remote data overwrite local data when the remote row is
+    // actually newer than that — never the other way around.
+    const META_KEY = '__sync_meta_' + appKey;
+    let localTouchedAt = 0;
+    try {
+      const m = JSON.parse(localStorage.getItem(META_KEY));
+      if (m && typeof m.touchedAt === 'number') localTouchedAt = m.touchedAt;
+    } catch (e) {}
+    function setTouchedAt(t) {
+      localTouchedAt = t;
+      try { origSet(META_KEY, JSON.stringify({ touchedAt: t })); } catch (e) {}
+    }
+
     localStorage.setItem = function (k, v) {
       origSet(k, v);
-      try { if (!suppressSync && matches(k)) schedulePush(); } catch (e) {}
+      try { if (!suppressSync && matches(k)) { setTouchedAt(Date.now()); schedulePush(); } } catch (e) {}
     };
     localStorage.removeItem = function (k) {
       origRemove(k);
-      try { if (!suppressSync && matches(k)) schedulePush(); } catch (e) {}
+      try { if (!suppressSync && matches(k)) { setTouchedAt(Date.now()); schedulePush(); } } catch (e) {}
     };
-    function applyRemote(remote) {
+    function applyRemote(remote, remoteTime) {
       if (!remote || typeof remote !== 'object') return false;
       suppressSync = true;
       let changed = false;
@@ -69,6 +87,9 @@
           if (!(k in remote)) { try { origRemove(k); changed = true; } catch (e) {} }
         }
       } finally { suppressSync = false; }
+      // Remote is now the source of truth as of remoteTime — record that so a
+      // reload doesn't think the (just-applied) local copy is "newer" than it.
+      if (typeof remoteTime === 'number' && remoteTime > localTouchedAt) setTouchedAt(remoteTime);
       if (changed && typeof onApplied === 'function') { try { onApplied(); } catch (e) {} }
       return changed;
     }
@@ -108,10 +129,17 @@
     (async function init() {
       supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
       try {
-        const { data, error } = await supa.from('app_state').select('data').eq('key', appKey).maybeSingle();
+        const { data, error } = await supa.from('app_state').select('data, updated_at').eq('key', appKey).maybeSingle();
         if (!error && data && data.data && Object.keys(data.data).length > 0) {
-          lastSyncedJson = JSON.stringify(data.data);
-          applyRemote(data.data);
+          const remoteTime = data.updated_at ? new Date(data.updated_at).getTime() : 0;
+          if (remoteTime > localTouchedAt) {
+            lastSyncedJson = JSON.stringify(data.data);
+            applyRemote(data.data, remoteTime);
+          } else if (Object.keys(collect()).length > 0) {
+            // Local was edited more recently than the remote row — local wins;
+            // push it up so the remote (and other devices) catch up.
+            schedulePush();
+          }
         } else if (Object.keys(collect()).length > 0) {
           schedulePush();
         }
@@ -121,10 +149,12 @@
           event: '*', schema: 'public', table: 'app_state', filter: 'key=eq.' + appKey,
         }, (payload) => {
           if (!payload.new || !payload.new.data) return;
+          const remoteTime = payload.new.updated_at ? new Date(payload.new.updated_at).getTime() : 0;
+          if (remoteTime <= localTouchedAt) return; // stale or our own echo — ignore
           const incoming = JSON.stringify(payload.new.data);
           if (incoming === lastSyncedJson) return;
           lastSyncedJson = incoming;
-          applyRemote(payload.new.data);
+          applyRemote(payload.new.data, remoteTime);
         })
         .subscribe();
     })();
